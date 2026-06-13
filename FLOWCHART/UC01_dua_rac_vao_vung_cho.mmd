@@ -1,0 +1,31 @@
+flowchart TD
+    start([Bắt đầu UC1])
+    actor["Actor: Học sinh<br/>đưa vật thể rác đến vùng chờ"]
+    input[/"Input: Vật thể rác xuất hiện<br/>gần cửa bỏ rác"/]
+    sensor["Device: Cảm biến vùng chờ<br/>phát hiện vật thể"]
+    camera["Device: Camera<br/>chụp ảnh rác"]
+    check{"Ảnh đủ rõ<br/>và hợp lệ?"}
+    blink["Device: LED đỏ nhấp nháy<br/>yêu cầu giữ yên vật thể"]
+    recapture["Camera chụp lại ảnh"]
+    waitLed["Device: LED đỏ sáng<br/>báo hệ thống đang xử lý"]
+    output[/"Output: Ảnh rác rõ nét<br/>chuyển sang UC2 để phân loại"/]
+    finish([Kết thúc UC1])
+
+    start --> actor --> input --> sensor --> camera --> check
+    check -- "Không: ảnh mờ" --> blink --> recapture --> check
+    check -- Có --> waitLed --> output --> finish
+
+    classDef actor fill:#fff3cd,stroke:#b58105,color:#3d2b00;
+    classDef device fill:#dbeafe,stroke:#2563eb,color:#102a56;
+    classDef input fill:#fef9c3,stroke:#ca8a04,color:#422006;
+    classDef process fill:#f3e8ff,stroke:#9333ea,color:#3b0764;
+    classDef decision fill:#ffedd5,stroke:#ea580c,color:#431407;
+    classDef output fill:#dcfce7,stroke:#16a34a,color:#052e16;
+    classDef terminal fill:#e5e7eb,stroke:#4b5563,color:#111827;
+
+    class actor actor;
+    class sensor,camera,blink,recapture,waitLed device;
+    class input input;
+    class check decision;
+    class output output;
+    class start,finish terminal;

@@ -1,0 +1,33 @@
+flowchart TD
+    start([Bắt đầu UC2])
+    input[/"Input: Ảnh rác hợp lệ từ UC1<br/>Mô hình AI và ngưỡng tin cậy"/]
+    preprocess["Hệ thống cắt, đổi kích thước<br/>và tiền xử lý ảnh"]
+    ai["AI Model: Trích xuất đặc trưng<br/>và dự đoán nhóm rác"]
+    scores["Sinh nhãn dự đoán<br/>và điểm tin cậy"]
+    compare{"Độ tin cậy<br/>đạt ngưỡng?"}
+    reject["Từ chối kết quả không chắc chắn<br/>và không cho nhận rác"]
+    rejectOut[/"Output thay thế:<br/>Tín hiệu từ chối rác"/]
+    code["Mã hóa kết quả:<br/>Hữu cơ / Giấy / Nhựa"]
+    controller["Device: Mạch điều khiển trung tâm<br/>tiếp nhận mã phân loại"]
+    output[/"Output chính: Mã loại rác<br/>sẵn sàng chuyển sang UC3"/]
+    finish([Kết thúc UC2])
+
+    start --> input --> preprocess --> ai --> scores --> compare
+    compare -- Không --> reject --> rejectOut --> finish
+    compare -- Có --> code --> controller --> output --> finish
+
+    classDef device fill:#dbeafe,stroke:#2563eb,color:#102a56;
+    classDef input fill:#fef9c3,stroke:#ca8a04,color:#422006;
+    classDef process fill:#f3e8ff,stroke:#9333ea,color:#3b0764;
+    classDef decision fill:#ffedd5,stroke:#ea580c,color:#431407;
+    classDef output fill:#dcfce7,stroke:#16a34a,color:#052e16;
+    classDef warning fill:#fee2e2,stroke:#dc2626,color:#450a0a;
+    classDef terminal fill:#e5e7eb,stroke:#4b5563,color:#111827;
+
+    class controller device;
+    class input input;
+    class preprocess,ai,scores,code process;
+    class compare decision;
+    class output,rejectOut output;
+    class reject warning;
+    class start,finish terminal;
