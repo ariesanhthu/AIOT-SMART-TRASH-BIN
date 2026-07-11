@@ -1,122 +1,69 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import React, { useState } from 'react';
+import { Sidebar } from './components/Sidebar';
+import { DashboardPage } from './pages/DashboardPage';
+import { AlertsPage } from './pages/AlertsPage';
+import { StatisticsPage } from './pages/StatisticsPage';
+import { BinDetailPage } from './pages/BinDetailPage';
+import { ConfigPage } from './pages/ConfigPage';
+import { ALERT_HISTORY, BINS } from './data';
+import './index.css';
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [currentPage, setCurrentPage] = useState('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [toastMsg, setToastMsg] = useState('');
+  const [bins, setBins] = useState(BINS);
+  const [alerts, setAlerts] = useState(ALERT_HISTORY);
+
+  const pendingAlertCount = alerts.filter(a => a.status === 'pending').length;
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(''), 2800);
+  };
+
+  const renderPage = () => {
+    switch (currentPage) {
+      case 'dashboard':
+        return <DashboardPage bins={bins} alerts={alerts} setPage={setCurrentPage} showToast={showToast} />;
+      case 'bindetail':
+        return <BinDetailPage bins={bins} />;
+      case 'statistics':
+        return <StatisticsPage />;
+      case 'alerts':
+        return <AlertsPage alerts={alerts} setAlerts={setAlerts} showToast={showToast} />;
+      case 'config':
+        return <ConfigPage showToast={showToast} />;
+      default:
+        return <DashboardPage bins={bins} alerts={alerts} setPage={setCurrentPage} showToast={showToast} />;
+    }
+  };
 
   return (
     <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+      <div id="toast" className={`toast ${toastMsg ? 'visible' : ''}`}>
+        <i className="fa-solid fa-circle-check"></i>
+        <span>{toastMsg}</span>
+      </div>
 
-      <div className="ticks"></div>
+      <Sidebar 
+        currentPage={currentPage} 
+        setPage={setCurrentPage} 
+        isOpen={sidebarOpen} 
+        toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+        alertCount={pendingAlertCount}
+      />
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+      <main className="main-canvas">
+        <div className="mobile-toggle" style={{ padding: '12px 16px', background: 'var(--surface-container-lowest)', borderBottom: '1px solid #E3E8E1' }}>
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: 'var(--on-surface)' }}>
+            <i className="fa-solid fa-bars"></i>
+          </button>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
+        {renderPage()}
+      </main>
     </>
-  )
+  );
 }
 
-export default App
+export default App;

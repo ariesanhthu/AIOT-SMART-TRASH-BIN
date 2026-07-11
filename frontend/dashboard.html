@@ -1,0 +1,2318 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SmartTrashBin — Hệ thống Thùng rác Thông minh</title>
+  <meta name="description" content="Smart Campus Eco-System - Theo dõi trạng thái thùng rác thông minh theo thời gian thực" />
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+  <!-- Font Awesome CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+  <!-- Google Fonts - Manrope -->
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ============================================================
+       DESIGN SYSTEM TOKENS
+    ============================================================ */
+    :root {
+      /* Surface */
+      --surface: #f7f9ff;
+      --surface-dim: #d1dbe8;
+      --surface-bright: #f7f9ff;
+      --surface-container-lowest: #ffffff;
+      --surface-container-low: #edf4ff;
+      --surface-container: #e4effd;
+      --surface-container-high: #dfe9f7;
+      --surface-container-highest: #d9e3f1;
+      --on-surface: #121d26;
+      --on-surface-variant: #3f4941;
+      --inverse-surface: #27313c;
+      --inverse-on-surface: #e8f2ff;
+      --outline: #6f7a71;
+      --outline-variant: #bec9bf;
+
+      /* Primary */
+      --primary: #006038;
+      --on-primary: #ffffff;
+      --primary-container: #1f7a4d;
+      --on-primary-container: #aeffca;
+      --inverse-primary: #82d8a3;
+
+      /* Secondary */
+      --secondary: #55615a;
+      --on-secondary: #ffffff;
+      --secondary-container: #d9e6dd;
+      --on-secondary-container: #5b6760;
+
+      /* Tertiary */
+      --tertiary: #8a3942;
+      --on-tertiary: #ffffff;
+      --tertiary-container: #a85059;
+      --on-tertiary-container: #ffe8e8;
+
+      /* Error */
+      --error: #ba1a1a;
+      --on-error: #ffffff;
+      --error-container: #ffdad6;
+      --on-error-container: #93000a;
+
+      /* Fixed variants */
+      --primary-fixed: #9ef5be;
+      --primary-fixed-dim: #82d8a3;
+      --secondary-fixed: #d9e6dd;
+      --tertiary-fixed: #ffdadb;
+
+      /* Category Colors */
+      --color-plastic: #3b82f6;
+      --color-paper: #f59e0b;
+      --color-organic: #22c55e;
+      --color-inorganic: #6b7280;
+      --color-recycle: #3b82f6;
+
+      /* Spacing */
+      --sidebar-width: 240px;
+      --container-gap: 24px;
+      --card-padding: 20px;
+      --grid-gutter: 16px;
+      --section-margin: 32px;
+
+      /* Radius */
+      --radius-sm: 0.25rem;
+      --radius: 0.5rem;
+      --radius-md: 0.75rem;
+      --radius-lg: 1rem;
+      --radius-xl: 1.5rem;
+      --radius-full: 9999px;
+
+      /* Shadows */
+      --shadow-card: 0px 4px 12px rgba(31, 41, 51, 0.04);
+      --shadow-hover: 0px 6px 16px rgba(31, 41, 51, 0.08);
+    }
+
+    /* ============================================================
+       BASE
+    ============================================================ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Manrope', sans-serif;
+      background: var(--surface);
+      color: var(--on-surface);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ============================================================
+       TYPOGRAPHY
+    ============================================================ */
+    .kpi-number {
+      font-family: 'Manrope', sans-serif;
+      font-size: 32px;
+      font-weight: 700;
+      line-height: 40px;
+      letter-spacing: -0.02em;
+    }
+    .headline-lg {
+      font-family: 'Manrope', sans-serif;
+      font-size: 24px;
+      font-weight: 600;
+      line-height: 32px;
+    }
+    .headline-md {
+      font-family: 'Manrope', sans-serif;
+      font-size: 20px;
+      font-weight: 600;
+      line-height: 28px;
+    }
+    .title-sm {
+      font-family: 'Manrope', sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 24px;
+    }
+    .body-md {
+      font-family: 'Manrope', sans-serif;
+      font-size: 14px;
+      font-weight: 400;
+      line-height: 20px;
+    }
+    .label-caps {
+      font-family: 'Manrope', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 16px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .badge-text {
+      font-family: 'Manrope', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 12px;
+    }
+
+    /* ============================================================
+       SCROLLBAR
+    ============================================================ */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--surface-container-low); }
+    ::-webkit-scrollbar-thumb { background: var(--outline-variant); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--outline); }
+
+    /* ============================================================
+       SIDEBAR
+    ============================================================ */
+    .sidebar {
+      width: var(--sidebar-width);
+      background: var(--surface-container-lowest);
+      border-right: 1px solid var(--outline-variant);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      height: 100%;
+    }
+    .sidebar-logo {
+      padding: 20px 20px;
+      border-bottom: 1px solid var(--outline-variant);
+    }
+    .sidebar-logo-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-lg);
+      background: var(--primary-container);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .sidebar-logo-icon i { color: var(--on-primary); font-size: 14px; }
+    .sidebar-logo-title { font-weight: 700; font-size: 15px; color: var(--on-surface); line-height: 1.2; }
+    .sidebar-logo-subtitle { font-size: 11px; color: var(--outline); margin-top: 1px; }
+
+    .sidebar-nav {
+      flex: 1;
+      padding: 16px 12px;
+      overflow-y: auto;
+    }
+    .sidebar-nav-group { margin-bottom: 8px; }
+    .sidebar-nav-label {
+      padding: 0 12px;
+      margin-bottom: 8px;
+      color: var(--outline);
+    }
+
+    .sidebar-link {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--on-surface-variant);
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s ease;
+      position: relative;
+    }
+    .sidebar-link:hover {
+      background: var(--secondary-container);
+      color: var(--on-surface);
+    }
+    .sidebar-link.active {
+      background: var(--primary-fixed);
+      color: var(--primary);
+      font-weight: 600;
+    }
+    .sidebar-link.active .nav-icon {
+      color: var(--primary);
+    }
+    .sidebar-link .nav-icon {
+      width: 16px;
+      text-align: center;
+      color: var(--outline);
+      font-size: 14px;
+    }
+
+    .sidebar-divider {
+      border-top: 1px solid var(--outline-variant);
+      margin: 12px 0;
+    }
+
+    .sidebar-user {
+      padding: 16px;
+      border-top: 1px solid var(--outline-variant);
+    }
+    .sidebar-user-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-full);
+      background: var(--primary-container);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--on-primary);
+      flex-shrink: 0;
+    }
+    .sidebar-user-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--on-surface);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sidebar-user-role {
+      font-size: 12px;
+      color: var(--outline);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Alert badge */
+    .nav-badge {
+      margin-left: auto;
+      background: var(--error);
+      color: var(--on-error);
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: var(--radius-full);
+      padding: 2px 7px;
+      min-width: 20px;
+      text-align: center;
+      line-height: 16px;
+    }
+
+    /* ============================================================
+       MAIN CANVAS
+    ============================================================ */
+    .main-canvas {
+      flex: 1;
+      overflow-y: auto;
+      background: #F6F8F5;
+    }
+
+    /* ============================================================
+       PAGE SECTIONS
+    ============================================================ */
+    .page-section {
+      padding: var(--container-gap);
+      animation: fadeIn 0.2s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .page-section.hidden { display: none; }
+
+    /* ============================================================
+       PAGE HEADER
+    ============================================================ */
+    .page-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: var(--container-gap);
+    }
+    .page-header h1 {
+      font-size: 24px;
+      font-weight: 600;
+      line-height: 32px;
+      color: var(--on-surface);
+    }
+    .page-header .subtitle {
+      font-size: 14px;
+      color: var(--outline);
+      margin-top: 4px;
+    }
+    .page-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .page-header-meta {
+      font-size: 12px;
+      color: var(--outline);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* ============================================================
+       CARDS
+    ============================================================ */
+    .card {
+      background: var(--surface-container-lowest);
+      border: 1px solid #E3E8E1;
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-card);
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .card:hover {
+      border-color: var(--outline-variant);
+    }
+    .card-interactive:hover {
+      border-color: var(--primary-container);
+      cursor: pointer;
+    }
+    .card-padding {
+      padding: var(--card-padding);
+    }
+
+    /* ============================================================
+       KPI STAT CARD
+    ============================================================ */
+    .stat-card {
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hover);
+    }
+    .stat-icon-wrap {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    /* ============================================================
+       GRID LAYOUTS
+    ============================================================ */
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--grid-gutter);
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--grid-gutter);
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--grid-gutter);
+    }
+    .grid-main {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: var(--container-gap);
+    }
+
+    @media (max-width: 1024px) {
+      .grid-4 { grid-template-columns: repeat(2, 1fr); }
+      .grid-main { grid-template-columns: 1fr; }
+      .grid-3 { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+      .grid-4 { grid-template-columns: 1fr; }
+      .grid-2 { grid-template-columns: 1fr; }
+      .page-section { padding: 16px; }
+    }
+
+    /* ============================================================
+       PROGRESS BARS
+    ============================================================ */
+    .progress-track {
+      width: 100%;
+      height: 8px;
+      background: var(--surface-container);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: var(--radius-full);
+      transition: width 0.6s cubic-bezier(.4,0,.2,1);
+    }
+
+    /* ============================================================
+       BADGES
+    ============================================================ */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 12px;
+    }
+    .badge-pill {
+      border-radius: var(--radius-full);
+    }
+    .badge-success {
+      background: #dcfce7;
+      color: #166534;
+    }
+    .badge-warning {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    .badge-error {
+      background: var(--error-container);
+      color: var(--on-error-container);
+    }
+    .badge-info {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+    .badge-neutral {
+      background: var(--surface-container);
+      color: var(--on-surface-variant);
+    }
+    .badge-online {
+      background: #dcfce7;
+      color: #166534;
+    }
+    .badge-offline {
+      background: var(--error-container);
+      color: var(--on-error-container);
+    }
+    .badge-maintenance {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    /* ============================================================
+       STATUS DOTS
+    ============================================================ */
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: var(--radius-full);
+    }
+    .status-online {
+      background: #22c55e;
+      box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+    }
+    .status-offline {
+      background: var(--error);
+      box-shadow: 0 0 0 3px rgba(186, 26, 26, 0.15);
+    }
+
+    /* ============================================================
+       BUTTONS
+    ============================================================ */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-weight: 500;
+      border: none;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: 'Manrope', sans-serif;
+    }
+    .btn-primary {
+      background: var(--primary-container);
+      color: var(--on-primary);
+    }
+    .btn-primary:hover {
+      background: var(--primary);
+    }
+    .btn-outline {
+      background: var(--surface-container-lowest);
+      color: var(--on-surface);
+      border: 1px solid #E3E8E1;
+    }
+    .btn-outline:hover {
+      border-color: var(--primary-container);
+      color: var(--primary);
+    }
+    .btn-error {
+      background: var(--error);
+      color: var(--on-error);
+    }
+    .btn-error:hover {
+      background: #a11515;
+    }
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+
+    /* ============================================================
+       TIME FILTER PILLS
+    ============================================================ */
+    .filter-group {
+      display: flex;
+      background: var(--surface-container);
+      border-radius: var(--radius);
+      padding: 3px;
+      gap: 2px;
+    }
+    .time-btn {
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--outline);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: 'Manrope', sans-serif;
+    }
+    .time-btn:hover {
+      color: var(--on-surface);
+    }
+    .time-btn.active-time {
+      background: var(--surface-container-lowest);
+      color: var(--primary);
+      font-weight: 600;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+
+    /* ============================================================
+       TABLES
+    ============================================================ */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    .data-table thead th {
+      text-align: left;
+      padding: 12px 20px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--outline);
+      background: #F9FAFB;
+      border-bottom: 1px solid #E3E8E1;
+    }
+    .data-table tbody td {
+      padding: 14px 20px;
+      border-bottom: 1px solid #E3E8E1;
+      color: var(--on-surface);
+      vertical-align: middle;
+    }
+    .data-table tbody tr {
+      transition: background 0.1s ease;
+      min-height: 56px;
+    }
+    .data-table tbody tr:hover {
+      background: var(--surface-container-low);
+    }
+    .data-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    /* ============================================================
+       INPUT FIELDS
+    ============================================================ */
+    .input-field {
+      width: 100%;
+      background: var(--surface-container-lowest);
+      border: 1px solid #E3E8E1;
+      color: var(--on-surface);
+      font-size: 14px;
+      font-family: 'Manrope', sans-serif;
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .input-field:focus {
+      border-color: var(--primary-container);
+      box-shadow: 0 0 0 3px rgba(31, 122, 77, 0.1);
+    }
+    .input-field::placeholder {
+      color: var(--outline-variant);
+    }
+
+    select.input-field {
+      cursor: pointer;
+      appearance: auto;
+    }
+
+    /* ============================================================
+       RANGE SLIDER
+    ============================================================ */
+    input[type=range] {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--surface-container);
+      outline: none;
+      width: 100%;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--primary-container);
+      cursor: pointer;
+      border: 2px solid var(--surface-container-lowest);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+    }
+    input[type=range]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--primary-container);
+      cursor: pointer;
+      border: 2px solid var(--surface-container-lowest);
+    }
+
+    /* ============================================================
+       TOAST NOTIFICATION
+    ============================================================ */
+    .toast {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 50;
+      background: var(--primary-container);
+      color: var(--on-primary);
+      padding: 12px 20px;
+      border-radius: var(--radius-lg);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+      font-size: 14px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s ease;
+    }
+    .toast.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* ============================================================
+       PULSE ANIMATION (Alerts)
+    ============================================================ */
+    @keyframes pulse-ring {
+      0% { transform: scale(1); opacity: 1; }
+      100% { transform: scale(1.8); opacity: 0; }
+    }
+    .pulse-ring::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 9999px;
+      background: currentColor;
+      animation: pulse-ring 1.4s ease-out infinite;
+    }
+    @keyframes ping {
+      75%, 100% { transform: scale(2); opacity: 0; }
+    }
+    .animate-ping {
+      animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+    }
+
+    /* ============================================================
+       CHART CONTAINER
+    ============================================================ */
+    .chart-container { position: relative; }
+
+    /* ============================================================
+       SECTION TITLE
+    ============================================================ */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--on-surface);
+    }
+
+    /* ============================================================
+       UTILITY CLASSES
+    ============================================================ */
+    .hidden { display: none !important; }
+    .flex { display: flex; }
+    .items-center { align-items: center; }
+    .items-start { align-items: flex-start; }
+    .justify-between { justify-content: space-between; }
+    .gap-2 { gap: 8px; }
+    .gap-3 { gap: 12px; }
+    .gap-4 { gap: 16px; }
+    .gap-6 { gap: 24px; }
+    .flex-1 { flex: 1; }
+    .min-w-0 { min-width: 0; }
+    .flex-wrap { flex-wrap: wrap; }
+    .flex-col { flex-direction: column; }
+    .flex-shrink-0 { flex-shrink: 0; }
+    .relative { position: relative; }
+    .overflow-hidden { overflow: hidden; }
+    .overflow-x-auto { overflow-x: auto; }
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+    .truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .w-full { width: 100%; }
+    .space-y-3 > * + * { margin-top: 12px; }
+    .space-y-4 > * + * { margin-top: 16px; }
+    .space-y-5 > * + * { margin-top: 20px; }
+    .space-y-6 > * + * { margin-top: 24px; }
+
+    .mb-2 { margin-bottom: 8px; }
+    .mb-3 { margin-bottom: 12px; }
+    .mb-4 { margin-bottom: 16px; }
+    .mb-5 { margin-bottom: 20px; }
+    .mb-6 { margin-bottom: 24px; }
+    .mb-8 { margin-bottom: 32px; }
+    .mt-1 { margin-top: 4px; }
+    .mt-2 { margin-top: 8px; }
+    .mt-3 { margin-top: 12px; }
+    .mt-4 { margin-top: 16px; }
+    .mt-6 { margin-top: 24px; }
+    .ml-auto { margin-left: auto; }
+    .mr-1 { margin-right: 4px; }
+    .pt-4 { padding-top: 16px; }
+
+    .font-mono { font-family: 'SF Mono', 'Consolas', monospace; }
+
+    /* ============================================================
+       MOBILE SIDEBAR
+    ============================================================ */
+    @media (max-width: 768px) {
+      .sidebar {
+        position: fixed;
+        left: -260px;
+        top: 0;
+        bottom: 0;
+        z-index: 40;
+        transition: left 0.3s ease;
+        box-shadow: 4px 0 16px rgba(0,0,0,0.1);
+      }
+      .sidebar.open { left: 0; }
+      .mobile-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.3);
+        z-index: 39;
+      }
+      .mobile-overlay.show { display: block; }
+      .mobile-toggle {
+        display: flex !important;
+      }
+    }
+    .mobile-toggle { display: none; }
+  </style>
+</head>
+
+<body>
+
+<!-- ============================================================
+     TOAST NOTIFICATION
+============================================================ -->
+<div id="toast" class="toast">
+  <i class="fa-solid fa-circle-check"></i>
+  <span id="toast-msg">Đã lưu cấu hình</span>
+</div>
+
+<!-- ============================================================
+     MOBILE OVERLAY
+============================================================ -->
+<div id="mobile-overlay" class="mobile-overlay" onclick="toggleSidebar()"></div>
+
+<!-- ============================================================
+     SIDEBAR
+============================================================ -->
+<aside class="sidebar" id="sidebar">
+  <!-- Logo -->
+  <div class="sidebar-logo">
+    <div class="flex items-center gap-3">
+      <div class="sidebar-logo-icon">
+        <i class="fa-solid fa-recycle"></i>
+      </div>
+      <div>
+        <p class="sidebar-logo-title">SmartTrashBin</p>
+        <p class="sidebar-logo-subtitle">Hệ thống Thùng rác Thông minh</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Nav links -->
+  <nav class="sidebar-nav">
+    <div class="sidebar-nav-group">
+      <p class="sidebar-nav-label label-caps">Quản lý</p>
+
+      <a href="#" onclick="showPage('dashboard')" id="nav-dashboard"
+         class="sidebar-link active">
+        <i class="nav-icon fa-solid fa-gauge-high"></i>
+        <span>Tổng quan</span>
+      </a>
+
+      <a href="#" onclick="showPage('bindetail')" id="nav-bindetail"
+         class="sidebar-link">
+        <i class="nav-icon fa-solid fa-trash-can"></i>
+        <span>Thiết bị</span>
+      </a>
+
+      <a href="#" onclick="showPage('statistics')" id="nav-statistics"
+         class="sidebar-link">
+        <i class="nav-icon fa-solid fa-chart-column"></i>
+        <span>Thống kê</span>
+      </a>
+
+      <a href="#" onclick="showPage('alerts')" id="nav-alerts"
+         class="sidebar-link">
+        <i class="nav-icon fa-solid fa-bell"></i>
+        <span>Cảnh báo</span>
+        <span id="alert-badge" class="nav-badge">3</span>
+      </a>
+
+      <a href="#" onclick="showPage('config')" id="nav-config"
+         class="sidebar-link">
+        <i class="nav-icon fa-solid fa-file-lines"></i>
+        <span>Báo cáo</span>
+      </a>
+    </div>
+
+    <div class="sidebar-divider"></div>
+
+    <div class="sidebar-nav-group">
+      <a href="#" class="sidebar-link" style="color: var(--outline);">
+        <i class="nav-icon fa-solid fa-circle-question"></i>
+        <span>Hỗ trợ</span>
+      </a>
+    </div>
+  </nav>
+
+  <!-- User -->
+  <div class="sidebar-user">
+    <div class="flex items-center gap-3">
+      <div class="sidebar-user-avatar">A</div>
+      <div class="flex-1 min-w-0">
+        <p class="sidebar-user-name">Admin</p>
+        <p class="sidebar-user-role">Quản trị hệ thống</p>
+      </div>
+      <i class="fa-solid fa-gear" style="color: var(--outline); font-size: 14px; cursor: pointer;"></i>
+    </div>
+  </div>
+</aside>
+
+<!-- ============================================================
+     MAIN CONTENT
+============================================================ -->
+<main class="main-canvas">
+
+  <!-- Mobile header bar -->
+  <div class="mobile-toggle" style="padding: 12px 16px; background: var(--surface-container-lowest); border-bottom: 1px solid #E3E8E1;">
+    <button onclick="toggleSidebar()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--on-surface);">
+      <i class="fa-solid fa-bars"></i>
+    </button>
+  </div>
+
+  <!-- ============================
+       PAGE: TỔNG QUAN HỆ THỐNG
+  ============================= -->
+  <section id="page-dashboard" class="page-section">
+
+    <!-- Header -->
+    <div class="page-header">
+      <div>
+        <h1>Tổng quan hệ thống</h1>
+        <p class="subtitle body-md">Theo dõi trạng thái thùng rác thông minh theo thời gian thực</p>
+      </div>
+      <div class="page-header-actions">
+        <div class="filter-group" id="time-filter">
+          <button onclick="setTimeFilter('location', this)" class="time-btn" style="display:flex;align-items:center;gap:4px;">
+            <i class="fa-solid fa-location-dot" style="font-size:11px;"></i> Tất cả vị trí
+          </button>
+        </div>
+        <div class="filter-group">
+          <button onclick="setTimeFilter('today', this)" class="time-btn active-time">Hôm nay</button>
+          <button onclick="setTimeFilter('7d', this)" class="time-btn">7 ngày</button>
+          <button onclick="setTimeFilter('30d', this)" class="time-btn">30 ngày</button>
+        </div>
+        <span class="page-header-meta">
+          Cập nhật lần cuối: <span id="last-update" style="font-weight:500;">--:--</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="grid-4 mb-6">
+
+      <div class="card card-padding stat-card">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="label-caps" style="color:var(--outline);">Tổng lượt bỏ rác</p>
+            <p class="kpi-number mt-1" id="kpi-classify" style="color:var(--on-surface);">128</p>
+            <p class="body-md mt-1" style="color: var(--primary-container); display:flex; align-items:center; gap:4px;">
+              <i class="fa-solid fa-arrow-up" style="font-size:10px;"></i>
+              <span style="font-size:12px;">+12% so với hôm qua</span>
+            </p>
+          </div>
+          <div class="stat-icon-wrap" style="background: var(--surface-container);">
+            <i class="fa-solid fa-trash-can" style="color: var(--outline);"></i>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card-padding stat-card">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="label-caps" style="color:var(--outline);">Rác tái chế</p>
+            <p class="kpi-number mt-1" id="kpi-total" style="color:var(--on-surface);">86</p>
+            <p class="body-md mt-1" style="color: var(--outline); font-size:12px;">Chai nhựa & Giấy</p>
+          </div>
+          <div class="stat-icon-wrap" style="background: #dbeafe;">
+            <i class="fa-solid fa-recycle" style="color: var(--color-plastic);"></i>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card-padding stat-card">
+        <div class="flex items-start justify-between">
+          <div>
+            <div class="flex items-center gap-2">
+              <p class="label-caps" style="color:var(--outline);">Cần xử lý</p>
+              <span class="badge badge-pill badge-error" style="font-size:10px; padding:2px 6px;">
+                <i class="fa-solid fa-triangle-exclamation" style="font-size:8px;"></i> Khẩn cấp
+              </span>
+            </div>
+            <p class="kpi-number mt-1" style="color: var(--error);" id="kpi-full">2</p>
+            <p class="body-md mt-1" style="color: var(--outline); font-size:12px;">Thiết bị sắp đầy (>90%)</p>
+          </div>
+          <div class="stat-icon-wrap" style="background: var(--error-container);">
+            <i class="fa-solid fa-triangle-exclamation" style="color: var(--error);"></i>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card-padding stat-card">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="label-caps" style="color:var(--outline);">Thiết bị online</p>
+            <p class="kpi-number mt-1" id="kpi-offline" style="color:var(--on-surface);">
+              <span style="color:var(--primary-container);">3</span><span style="font-size:20px;color:var(--outline);">/4</span>
+            </p>
+            <p class="body-md mt-1" style="color: var(--error); font-size:12px; display:flex; align-items:center; gap:4px;">
+              <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--error);"></span>
+              1 thiết bị mất kết nối
+            </p>
+          </div>
+          <div class="stat-icon-wrap" style="background: #dcfce7;">
+            <i class="fa-solid fa-wifi" style="color: var(--primary-container);"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bin status grid + Right sidebar (Alerts + Rewards) -->
+    <div style="display:grid; grid-template-columns: 1fr 1fr 340px; gap: var(--container-gap); margin-bottom: var(--container-gap);">
+
+      <!-- Device status cards -->
+      <div style="grid-column: span 2;">
+        <div class="section-header">
+          <h2 class="section-title">Trạng thái thiết bị</h2>
+          <a href="#" onclick="showPage('bindetail')" style="font-size:13px; color:var(--primary-container); text-decoration:none; font-weight:500; display:flex; align-items:center; gap:4px;">
+            Xem tất cả <i class="fa-solid fa-arrow-right" style="font-size:10px;"></i>
+          </a>
+        </div>
+        <div class="grid-2" id="bin-grid">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- Right column: Alerts + Rewards -->
+      <div style="display:flex; flex-direction:column; gap: var(--container-gap);">
+
+        <!-- Alerts panel -->
+        <div>
+          <div class="section-header">
+            <h2 class="section-title">Cảnh báo gần đây</h2>
+          </div>
+          <div class="card">
+            <div id="alerts-preview" class="space-y-0">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Reward tracker / Class ranking -->
+        <div>
+          <div class="section-header">
+            <h2 class="section-title">Bảng điểm thưởng</h2>
+            <span class="badge badge-pill badge-success" style="font-size:11px;">Tháng này</span>
+          </div>
+          <div class="card card-padding">
+            <div id="reward-list" class="space-y-4">
+              <!-- Populated by JS -->
+            </div>
+            <div style="margin-top:16px; padding-top:14px; border-top:1px solid #E3E8E1; display:flex; align-items:center; justify-content:space-between;">
+              <span class="body-md" style="color:var(--outline); font-size:12px;">Cập nhật tự động</span>
+              <span class="body-md" style="color:var(--primary-container); font-weight:600; font-size:12px;">Tổng: <span id="total-points">0</span> điểm</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Pie chart + Activity log -->
+    <div style="display:grid; grid-template-columns: 340px 1fr; gap: var(--container-gap);">
+
+      <!-- Donut chart -->
+      <div class="card card-padding">
+        <h2 class="section-title mb-4">Phân loại rác hôm nay</h2>
+        <div class="chart-container" style="height:200px; display:flex; align-items:center; justify-content:center;">
+          <canvas id="overview-chart"></canvas>
+        </div>
+        <div class="mt-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span style="width:10px;height:10px;border-radius:50%;background:var(--color-plastic);display:inline-block;"></span>
+              <span class="body-md">Nhựa</span>
+            </div>
+            <span class="body-md" style="font-weight:600;">35%</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span style="width:10px;height:10px;border-radius:50%;background:var(--color-paper);display:inline-block;"></span>
+              <span class="body-md">Giấy</span>
+            </div>
+            <span class="body-md" style="font-weight:600;">40%</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span style="width:10px;height:10px;border-radius:50%;background:var(--color-organic);display:inline-block;"></span>
+              <span class="body-md">Hữu cơ</span>
+            </div>
+            <span class="body-md" style="font-weight:600;">25%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Activity log -->
+      <div class="card">
+        <div style="padding:16px 20px; border-bottom:1px solid #E3E8E1; display:flex; align-items:center; justify-content:space-between;">
+          <h2 class="section-title">Nhật ký hoạt động</h2>
+          <button class="btn btn-outline btn-sm" onclick="showToast('Đã xuất CSV!')">
+            <i class="fa-solid fa-file-export" style="font-size:12px;"></i> Xuất CSV
+          </button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Thời gian</th>
+                <th>Thiết bị</th>
+                <th>Loại rác</th>
+                <th>Độ tin cậy AI</th>
+                <th>Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody id="activity-log-body">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================
+       PAGE: CẢNH BÁO
+  ============================= -->
+  <section id="page-alerts" class="page-section hidden">
+    <div class="page-header">
+      <div>
+        <h1>Hệ thống Cảnh báo</h1>
+        <p class="subtitle body-md">Theo dõi và xử lý cảnh báo thời gian thực</p>
+      </div>
+      <button onclick="simulateNewAlert()" class="btn btn-error">
+        <i class="fa-solid fa-plus"></i> Thêm cảnh báo giả
+      </button>
+    </div>
+
+    <!-- Active alert panel -->
+    <div class="card mb-6">
+      <div style="padding:16px 20px; border-bottom:1px solid #E3E8E1; display:flex; align-items:center; justify-content:space-between;">
+        <div class="flex items-center gap-2">
+          <span class="relative" style="display:flex; width:12px; height:12px;">
+            <span class="animate-ping" style="position:absolute;display:inline-flex;width:100%;height:100%;border-radius:9999px;background:var(--error);opacity:0.75;"></span>
+            <span style="position:relative;display:inline-flex;border-radius:9999px;width:12px;height:12px;background:var(--error);"></span>
+          </span>
+          <h2 class="title-sm" style="color:var(--on-surface);">Cảnh báo đang hoạt động</h2>
+          <span id="active-alert-count" class="badge badge-pill badge-error">0 cảnh báo</span>
+        </div>
+        <button onclick="markAllResolved()" class="btn btn-outline btn-sm">
+          <i class="fa-solid fa-check-double" style="font-size:12px;"></i> Đánh dấu tất cả
+        </button>
+      </div>
+      <div id="active-alerts" style="max-height:288px; overflow-y:auto;">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <!-- Alert history -->
+    <div class="card">
+      <div style="padding:16px 20px; border-bottom:1px solid #E3E8E1; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px;">
+        <h2 class="title-sm" style="color:var(--on-surface);">Lịch sử cảnh báo</h2>
+        <div class="flex gap-2">
+          <select onchange="filterAlertHistory(this.value)" class="input-field" style="width:auto;padding:6px 12px;font-size:13px;">
+            <option value="all">Tất cả</option>
+            <option value="resolved">Đã xử lý</option>
+            <option value="pending">Chưa xử lý</option>
+          </select>
+          <select onchange="filterAlertType(this.value)" class="input-field" style="width:auto;padding:6px 12px;font-size:13px;">
+            <option value="all">Loại rác</option>
+            <option value="Hữu cơ">Hữu cơ</option>
+            <option value="Tái chế">Tái chế</option>
+            <option value="Vô cơ">Vô cơ</option>
+          </select>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Thùng / Ngăn</th>
+              <th>Loại rác</th>
+              <th>Độ đầy</th>
+              <th>Thời gian</th>
+              <th>Trạng thái</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="alert-history-body">
+            <!-- Populated by JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================
+       PAGE: THỐNG KÊ
+  ============================= -->
+  <section id="page-statistics" class="page-section hidden">
+    <div class="page-header">
+      <div>
+        <h1>Báo cáo Thống kê</h1>
+        <p class="subtitle body-md">Phân tích xu hướng và hiệu quả phân loại rác</p>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card card-padding mb-6" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;">
+      <div>
+        <label class="label-caps" style="color:var(--outline); display:block; margin-bottom:6px;">Thùng rác</label>
+        <select id="filter-bin" onchange="updateCharts()" class="input-field" style="width:auto;">
+          <option value="all">Tất cả</option>
+          <option value="A1">Thùng A1</option>
+          <option value="A2">Thùng A2</option>
+          <option value="B1">Thùng B1</option>
+          <option value="B2">Thùng B2</option>
+          <option value="C1">Thùng C1</option>
+        </select>
+      </div>
+      <div>
+        <label class="label-caps" style="color:var(--outline); display:block; margin-bottom:6px;">Loại rác</label>
+        <select id="filter-waste" onchange="updateCharts()" class="input-field" style="width:auto;">
+          <option value="all">Tất cả</option>
+          <option value="organic">Hữu cơ</option>
+          <option value="recycle">Tái chế</option>
+          <option value="inorganic">Vô cơ</option>
+        </select>
+      </div>
+      <div>
+        <label class="label-caps" style="color:var(--outline); display:block; margin-bottom:6px;">Từ ngày</label>
+        <input type="date" id="filter-from" class="input-field" style="width:auto;" />
+      </div>
+      <div>
+        <label class="label-caps" style="color:var(--outline); display:block; margin-bottom:6px;">Đến ngày</label>
+        <input type="date" id="filter-to" class="input-field" style="width:auto;" />
+      </div>
+      <button onclick="updateCharts()" class="btn btn-primary">
+        <i class="fa-solid fa-filter"></i> Áp dụng
+      </button>
+    </div>
+
+    <!-- Summary stats -->
+    <div class="grid-3 mb-6">
+      <div class="card card-padding text-center">
+        <p class="kpi-number" style="color: var(--color-organic);" id="stat-organic">--</p>
+        <p class="body-md mt-1" style="color: var(--outline);">Hữu cơ (lượt)</p>
+      </div>
+      <div class="card card-padding text-center">
+        <p class="kpi-number" style="color: var(--color-plastic);" id="stat-recycle">--</p>
+        <p class="body-md mt-1" style="color: var(--outline);">Tái chế (lượt)</p>
+      </div>
+      <div class="card card-padding text-center">
+        <p class="kpi-number" style="color: var(--color-inorganic);" id="stat-inorganic">--</p>
+        <p class="body-md mt-1" style="color: var(--outline);">Vô cơ (lượt)</p>
+      </div>
+    </div>
+
+    <!-- Charts grid -->
+    <div class="grid-2 mb-6">
+      <div class="card card-padding">
+        <h2 class="title-sm mb-4" style="color:var(--on-surface);">Lượng rác theo từng loại</h2>
+        <div class="chart-container" style="height:260px">
+          <canvas id="bar-chart"></canvas>
+        </div>
+      </div>
+      <div class="card card-padding">
+        <h2 class="title-sm mb-4" style="color:var(--on-surface);">Xu hướng theo ngày</h2>
+        <div class="chart-container" style="height:260px">
+          <canvas id="line-chart"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card card-padding">
+        <h2 class="title-sm mb-4" style="color:var(--on-surface);">Tỷ lệ phân loại</h2>
+        <div class="chart-container flex items-center" style="height:260px;justify-content:center;">
+          <canvas id="doughnut-chart"></canvas>
+        </div>
+      </div>
+      <div class="card card-padding">
+        <h2 class="title-sm mb-4" style="color:var(--on-surface);">Độ chính xác AI theo ngày</h2>
+        <div class="chart-container" style="height:260px">
+          <canvas id="accuracy-chart"></canvas>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================
+       PAGE: CHI TIẾT THÙNG RÁC
+  ============================= -->
+  <section id="page-bindetail" class="page-section hidden">
+    <div class="page-header">
+      <div>
+        <h1>Chi tiết Thùng rác</h1>
+        <p class="subtitle body-md">Giám sát chi tiết từng thùng và ngăn chứa</p>
+      </div>
+      <select id="bin-selector" onchange="loadBinDetail(this.value)" class="input-field" style="width:auto;">
+        <option value="A1">Thùng A1 — Hành lang tầng 1</option>
+        <option value="A2">Thùng A2 — Hành lang tầng 2</option>
+        <option value="B1">Thùng B1 — Sân trường</option>
+        <option value="B2">Thùng B2 — Căng tin</option>
+        <option value="C1">Thùng C1 — Thư viện</option>
+      </select>
+    </div>
+
+    <!-- Bin header info -->
+    <div class="card card-padding mb-6">
+      <div class="flex flex-wrap items-center gap-6">
+        <div class="flex items-center gap-3">
+          <div style="width:48px;height:48px;background:var(--primary-fixed);border-radius:var(--radius-lg);display:flex;align-items:center;justify-content:center;">
+            <i class="fa-solid fa-trash-can" style="color:var(--primary);font-size:20px;"></i>
+          </div>
+          <div>
+            <p style="font-weight:700;font-size:18px;color:var(--on-surface);" id="detail-bin-id">Thùng A1</p>
+            <p class="body-md" style="color:var(--outline);" id="detail-bin-location">Hành lang tầng 1</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span id="detail-status-dot" class="status-dot status-online"></span>
+          <span id="detail-status-text" class="body-md" style="font-weight:600; color:var(--primary-container);">Online</span>
+        </div>
+        <div class="body-md" style="color:var(--outline);">
+          <i class="fa-solid fa-clock mr-1"></i>
+          Cập nhật: <span id="detail-last-seen" style="color:var(--on-surface);font-weight:500;">vừa xong</span>
+        </div>
+        <div class="body-md" style="color:var(--outline);">
+          <i class="fa-solid fa-microchip mr-1"></i>
+          Firmware: <span style="color:var(--on-surface);font-weight:500;">v1.0.2</span>
+        </div>
+        <div class="body-md" style="color:var(--outline);">
+          <i class="fa-solid fa-robot mr-1"></i>
+          Model AI: <span style="color:var(--on-surface);font-weight:500;">trashnet-v1</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fill gauges + History -->
+    <div style="display:grid; grid-template-columns: 1fr 2fr; gap:var(--container-gap);">
+
+      <!-- Fill gauges -->
+      <div class="card card-padding">
+        <h2 class="title-sm mb-5" style="color:var(--on-surface);">Mức đầy từng ngăn</h2>
+        <div id="fill-gauges" class="space-y-5">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- Classification history -->
+      <div class="card">
+        <div style="padding:16px 20px; border-bottom:1px solid #E3E8E1; display:flex; align-items:center; justify-content:space-between;">
+          <h2 class="title-sm" style="color:var(--on-surface);">Lịch sử phân loại gần nhất</h2>
+          <span class="body-md" style="color:var(--outline);" id="history-count">-- lượt</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Thời gian</th>
+                <th>Loại rác</th>
+                <th>Ngăn mở</th>
+                <th>Độ chính xác AI</th>
+                <th>Kết quả</th>
+              </tr>
+            </thead>
+            <tbody id="classify-history">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================
+       PAGE: CẤU HÌNH
+  ============================= -->
+  <section id="page-config" class="page-section hidden">
+    <div class="page-header">
+      <div>
+        <h1>Cấu hình Hệ thống</h1>
+        <p class="subtitle body-md">Quản lý ngưỡng AI và cảnh báo cho từng thùng / ngăn</p>
+      </div>
+    </div>
+
+    <div class="grid-2 mb-6">
+      <!-- AI Config -->
+      <div class="card card-padding">
+        <div class="flex items-center gap-3 mb-6">
+          <div style="width:36px;height:36px;background:#f3e8ff;border-radius:var(--radius-lg);display:flex;align-items:center;justify-content:center;">
+            <i class="fa-solid fa-robot" style="color:#9333ea;"></i>
+          </div>
+          <div>
+            <h2 class="title-sm" style="color:var(--on-surface);">Ngưỡng tin cậy AI</h2>
+            <p class="body-md" style="color:var(--outline); font-size:12px;">Điểm confidence tối thiểu để chấp nhận kết quả</p>
+          </div>
+        </div>
+
+        <div class="space-y-6">
+          <div>
+            <div class="flex justify-between items-center mb-3">
+              <label class="body-md" style="font-weight:500; color:var(--on-surface);">Ngưỡng tổng quát</label>
+              <span class="badge badge-pill badge-success" style="font-weight:700;" id="conf-global-val">85%</span>
+            </div>
+            <input type="range" min="50" max="99" value="85" id="conf-global"
+              oninput="document.getElementById('conf-global-val').textContent = this.value + '%'" />
+            <div class="flex justify-between mt-1" style="font-size:11px;color:var(--outline);"><span>50%</span><span>99%</span></div>
+            <p style="font-size:11px;color:var(--outline);margin-top:8px;">Áp dụng cho tất cả thùng nếu không cấu hình riêng</p>
+          </div>
+
+          <div>
+            <div class="flex justify-between items-center mb-3">
+              <label class="body-md" style="font-weight:500; color:var(--on-surface);">Hữu cơ (Organic)</label>
+              <span class="badge badge-pill badge-success" style="font-weight:700;" id="conf-organic-val">80%</span>
+            </div>
+            <input type="range" min="50" max="99" value="80" id="conf-organic"
+              oninput="document.getElementById('conf-organic-val').textContent = this.value + '%'" />
+          </div>
+
+          <div>
+            <div class="flex justify-between items-center mb-3">
+              <label class="body-md" style="font-weight:500; color:var(--on-surface);">Tái chế (Recyclable)</label>
+              <span class="badge badge-pill badge-info" style="font-weight:700;" id="conf-recycle-val">88%</span>
+            </div>
+            <input type="range" min="50" max="99" value="88" id="conf-recycle"
+              oninput="document.getElementById('conf-recycle-val').textContent = this.value + '%'" />
+          </div>
+
+          <div>
+            <div class="flex justify-between items-center mb-3">
+              <label class="body-md" style="font-weight:500; color:var(--on-surface);">Vô cơ (Inorganic)</label>
+              <span class="badge badge-pill badge-neutral" style="font-weight:700;" id="conf-inorganic-val">82%</span>
+            </div>
+            <input type="range" min="50" max="99" value="82" id="conf-inorganic"
+              oninput="document.getElementById('conf-inorganic-val').textContent = this.value + '%'" />
+          </div>
+        </div>
+
+        <button onclick="saveConfig('ai')" class="btn btn-primary w-full mt-6" style="justify-content:center;">
+          <i class="fa-solid fa-floppy-disk"></i> Lưu cấu hình AI
+        </button>
+      </div>
+
+      <!-- Fill threshold config per bin -->
+      <div class="card card-padding">
+        <div class="flex items-center gap-3 mb-6">
+          <div style="width:36px;height:36px;background:#fef3c7;border-radius:var(--radius-lg);display:flex;align-items:center;justify-content:center;">
+            <i class="fa-solid fa-gauge" style="color:#d97706;"></i>
+          </div>
+          <div>
+            <h2 class="title-sm" style="color:var(--on-surface);">Ngưỡng báo đầy</h2>
+            <p class="body-md" style="color:var(--outline); font-size:12px;">Cấu hình % đầy riêng cho từng ngăn</p>
+          </div>
+        </div>
+
+        <!-- Bin tabs -->
+        <div class="filter-group mb-5" id="threshold-bin-tabs" style="display:flex;">
+          <button onclick="selectThresholdBin('A1', this)" class="time-btn active-time thresh-tab" style="flex:1;text-align:center;">A1</button>
+          <button onclick="selectThresholdBin('A2', this)" class="time-btn thresh-tab" style="flex:1;text-align:center;">A2</button>
+          <button onclick="selectThresholdBin('B1', this)" class="time-btn thresh-tab" style="flex:1;text-align:center;">B1</button>
+          <button onclick="selectThresholdBin('B2', this)" class="time-btn thresh-tab" style="flex:1;text-align:center;">B2</button>
+          <button onclick="selectThresholdBin('C1', this)" class="time-btn thresh-tab" style="flex:1;text-align:center;">C1</button>
+        </div>
+
+        <div id="threshold-form" class="space-y-5">
+          <!-- Populated by JS -->
+        </div>
+
+        <button onclick="saveConfig('threshold')" class="btn w-full mt-6" style="justify-content:center; background:#d97706; color:#fff;">
+          <i class="fa-solid fa-floppy-disk"></i> Lưu ngưỡng cảnh báo
+        </button>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <!-- Network & device config -->
+      <div class="card card-padding">
+        <div class="flex items-center gap-3 mb-6">
+          <div style="width:36px;height:36px;background:#dbeafe;border-radius:var(--radius-lg);display:flex;align-items:center;justify-content:center;">
+            <i class="fa-solid fa-network-wired" style="color:#3b82f6;"></i>
+          </div>
+          <div>
+            <h2 class="title-sm" style="color:var(--on-surface);">Kết nối & Mạng</h2>
+            <p class="body-md" style="color:var(--outline); font-size:12px;">MQTT broker và endpoint telemetry</p>
+          </div>
+        </div>
+        <div class="space-y-4">
+          <div>
+            <label class="label-caps" style="color:var(--outline); display:block; margin-bottom:6px;">MQTT Broker URL</label>
+            <input type="text" value="mqtt://hivemq.cloud:8883" class="input-field" />
+          </div>
+          <div>
+            <label class="label-caps" style="color:var(--outline); display:block; margin-bottom:6px;">Topic prefix</label>
+            <input type="text" value="smartbin/hcmus/" class="input-field" />
+          </div>
+          <div>
+            <label class="label-caps" style="color:var(--outline); display:block; margin-bottom:6px;">Telemetry interval (giây)</label>
+            <input type="number" value="30" min="5" max="300" class="input-field" />
+          </div>
+        </div>
+        <button onclick="saveConfig('network')" class="btn w-full mt-6" style="justify-content:center; background:#3b82f6; color:#fff;">
+          <i class="fa-solid fa-floppy-disk"></i> Lưu cấu hình mạng
+        </button>
+      </div>
+
+      <!-- AI model management -->
+      <div class="card card-padding">
+        <div class="flex items-center gap-3 mb-6">
+          <div style="width:36px;height:36px;background:#ccfbf1;border-radius:var(--radius-lg);display:flex;align-items:center;justify-content:center;">
+            <i class="fa-solid fa-brain" style="color:#0d9488;"></i>
+          </div>
+          <div>
+            <h2 class="title-sm" style="color:var(--on-surface);">Quản lý Model AI</h2>
+            <p class="body-md" style="color:var(--outline); font-size:12px;">Phiên bản và deployment</p>
+          </div>
+        </div>
+        <div class="space-y-3">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--primary-fixed);border-radius:var(--radius-lg);border:1px solid rgba(31,122,77,0.2);">
+            <div class="flex items-center gap-3">
+              <span style="width:8px;height:8px;border-radius:50%;background:var(--primary-container);"></span>
+              <div>
+                <p class="body-md" style="font-weight:600;color:var(--on-surface);">trashnet-tflite-v1.2</p>
+                <p style="font-size:12px;color:var(--outline);">Đang chạy · Triển khai 12/05/2026</p>
+              </div>
+            </div>
+            <span class="badge badge-pill badge-success">Active</span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--surface-container-low);border-radius:var(--radius-lg);border:1px solid #E3E8E1;">
+            <div class="flex items-center gap-3">
+              <span style="width:8px;height:8px;border-radius:50%;background:var(--outline-variant);"></span>
+              <div>
+                <p class="body-md" style="font-weight:600;color:var(--outline);">trashnet-tflite-v1.1</p>
+                <p style="font-size:12px;color:var(--outline-variant);">Đã dừng · Triển khai 01/04/2026</p>
+              </div>
+            </div>
+            <span class="badge badge-pill badge-neutral">Inactive</span>
+          </div>
+        </div>
+        <div style="margin-top:16px;padding:12px;background:#fef3c7;border:1px solid #fde68a;border-radius:var(--radius-lg);">
+          <p style="font-size:12px;color:#92400e;">
+            <i class="fa-solid fa-circle-info mr-1"></i>
+            Trước khi triển khai model mới, hệ thống sẽ chạy validation tự động trên 100 mẫu kiểm thử.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============================================================
+     JAVASCRIPT — MOCK DATA & LOGIC
+============================================================ -->
+<script>
+// ================================================================
+// MOCK DATA
+// ================================================================
+const BINS = [
+  { id: 'A1', name: 'Bin A301', location: 'Classroom A301', online: true,
+    compartments: { organic: 72, recycle: 45, inorganic: 88 } },
+  { id: 'A2', name: 'Bin B102', location: 'Hallway B', online: false,
+    compartments: { organic: 30, recycle: 65, inorganic: 20 } },
+  { id: 'B1', name: 'Bin C205', location: 'Sân trường',       online: true,
+    compartments: { organic: 91, recycle: 78, inorganic: 55 } },
+  { id: 'B2', name: 'Bin D101', location: 'Căng tin',         online: true,
+    compartments: { organic: 55, recycle: 40, inorganic: 70 } },
+  { id: 'C1', name: 'Bin E302', location: 'Thư viện',         online: true,
+    compartments: { organic: 25, recycle: 82, inorganic: 15 } },
+  { id: 'C2', name: 'Bin F201', location: 'Phòng thể dục',   online: false,
+    compartments: { organic: 60, recycle: 60, inorganic: 60 } },
+  { id: 'D1', name: 'Bin G102', location: 'Cổng chính',      online: true,
+    compartments: { organic: 48, recycle: 33, inorganic: 62 } },
+  { id: 'D2', name: 'Bin H301', location: 'Nhà xe',           online: true,
+    compartments: { organic: 15, recycle: 25, inorganic: 30 } },
+];
+
+const THRESHOLDS = {
+  A1: { organic: 80, recycle: 85, inorganic: 90 },
+  A2: { organic: 80, recycle: 85, inorganic: 90 },
+  B1: { organic: 75, recycle: 80, inorganic: 85 },
+  B2: { organic: 80, recycle: 80, inorganic: 85 },
+  C1: { organic: 85, recycle: 90, inorganic: 90 },
+};
+
+const WASTE_TYPES = {
+  organic:   { label: 'Hữu cơ',  color: '#22c55e', bgClass: 'badge-success',  labelShort: 'Hữu cơ' },
+  recycle:   { label: 'Nhựa',    color: '#3b82f6', bgClass: 'badge-info',     labelShort: 'Nhựa'  },
+  inorganic: { label: 'Giấy',    color: '#f59e0b', bgClass: 'badge-warning',  labelShort: 'Giấy'  },
+};
+
+const REWARDS = [
+  { name: 'Lớp 5A1', points: 1240, rank: 1, delta: +30 },
+  { name: 'Lớp 4B2', points: 1180, rank: 2, delta: +15 },
+  { name: 'Lớp 5C',  points: 1050, rank: 3, delta: +45 },
+  { name: 'Lớp 3A',  points:  920, rank: 4, delta: -5 },
+  { name: 'Lớp 2B',  points:  875, rank: 5, delta: +10 },
+];
+
+const ALERT_HISTORY = [
+  { id: 1, bin: 'A301', compartment: 'Hữu cơ', fill: 95, time: '10:30', date: '24/10/2023', status: 'pending',  type: 'Hữu cơ'  },
+  { id: 2, bin: 'B102', compartment: 'Offline', fill: 0, time: '10:28', date: '24/10/2023', status: 'pending', type: 'Vô cơ' },
+  { id: 3, bin: 'C205', compartment: 'Giấy',   fill: 82, time: '10:15', date: '24/10/2023', status: 'pending',  type: 'Tái chế'},
+  { id: 4, bin: 'D101', compartment: 'Nhựa',   fill: 85, time: '16:20', date: '23/10/2023', status: 'resolved', type: 'Tái chế' },
+  { id: 5, bin: 'A301', compartment: 'Nhựa',   fill: 87, time: '14:05', date: '23/10/2023', status: 'resolved', type: 'Tái chế'},
+  { id: 6, bin: 'E302', compartment: 'Hữu cơ', fill: 92, time: '11:30', date: '22/10/2023', status: 'resolved', type: 'Hữu cơ' },
+  { id: 7, bin: 'C205', compartment: 'Giấy',   fill: 83, time: '10:15', date: '22/10/2023', status: 'resolved', type: 'Vô cơ'  },
+];
+
+const CLASSIFY_HISTORY_A1 = [
+  { time: '10:32:14', type: 'recycle',   compartment: 'Nhựa',    accuracy: 94.2, result: 'success' },
+  { time: '10:28:07', type: 'organic',   compartment: 'Hữu cơ',  accuracy: 87.5, result: 'success' },
+  { time: '10:21:55', type: 'inorganic', compartment: 'Giấy',    accuracy: 91.8, result: 'success' },
+  { time: '10:15:30', type: 'recycle',   compartment: 'Nhựa',    accuracy: 72.1, result: 'rejected' },
+  { time: '10:10:02', type: 'organic',   compartment: 'Hữu cơ',  accuracy: 96.3, result: 'success' },
+  { time: '09:58:44', type: 'inorganic', compartment: 'Giấy',    accuracy: 83.7, result: 'success' },
+  { time: '09:45:11', type: 'recycle',   compartment: 'Nhựa',    accuracy: 89.4, result: 'success' },
+  { time: '09:32:08', type: 'organic',   compartment: 'Hữu cơ',  accuracy: 92.0, result: 'success' },
+];
+
+// Chart.js defaults for light theme
+Chart.defaults.color = '#6f7a71';
+Chart.defaults.borderColor = 'rgba(0,0,0,0.06)';
+Chart.defaults.font.family = 'Manrope';
+
+let charts = {};
+let currentAlertFilter = 'all';
+let currentAlertTypeFilter = 'all';
+let currentThresholdBin = 'A1';
+
+// ================================================================
+// MOBILE SIDEBAR TOGGLE
+// ================================================================
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('mobile-overlay').classList.toggle('show');
+}
+
+// ================================================================
+// PAGE NAVIGATION
+// ================================================================
+function showPage(page) {
+  document.querySelectorAll('.page-section').forEach(s => s.classList.add('hidden'));
+  document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+
+  const target = document.getElementById('page-' + page);
+  const nav = document.getElementById('nav-' + page);
+  if (target) target.classList.remove('hidden');
+  if (nav) nav.classList.add('active');
+
+  if (page === 'statistics') initStatCharts();
+  if (page === 'bindetail') loadBinDetail(document.getElementById('bin-selector').value);
+  if (page === 'config') selectThresholdBin('A1', document.querySelector('.thresh-tab'));
+
+  // Close mobile sidebar
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('mobile-overlay').classList.remove('show');
+}
+
+// ================================================================
+// DASHBOARD — PAGE 1
+// ================================================================
+function renderBinGrid() {
+  const grid = document.getElementById('bin-grid');
+  // Show only first 4 bins on dashboard
+  const dashBins = BINS.slice(0, 4);
+  grid.innerHTML = dashBins.map(bin => {
+    const fills = Object.values(bin.compartments);
+    const maxFill = Math.max(...fills);
+    const isFull = maxFill >= 80;
+
+    return `
+    <div onclick="goToBinDetail('${bin.id}')" class="card card-padding card-interactive" style="position:relative;">
+      <div class="flex items-start justify-between mb-3">
+        <div>
+          <p class="title-sm" style="color:var(--on-surface);">${bin.name}</p>
+          <p class="body-md" style="color:var(--outline); font-size:12px; display:flex; align-items:center; gap:4px; margin-top:2px;">
+            <i class="fa-solid fa-location-dot" style="font-size:10px;"></i> ${bin.location}
+          </p>
+        </div>
+        <span class="badge badge-pill ${bin.online ? 'badge-online' : 'badge-offline'}" style="display:flex;align-items:center;gap:4px;">
+          <span style="width:6px;height:6px;border-radius:50%;background:${bin.online ? '#22c55e' : 'var(--error)'};display:inline-block;"></span>
+          ${bin.online ? 'Online' : 'Offline'}
+        </span>
+      </div>
+      ${bin.online ? `
+      <div class="space-y-3" style="margin-top:12px;">
+        ${Object.entries(bin.compartments).map(([k, v]) => {
+          const wt = WASTE_TYPES[k];
+          const isOver = v >= 80;
+          return `
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <span class="body-md" style="font-size:12px;color:var(--on-surface);">${wt.label}</span>
+              <span class="body-md" style="font-size:12px;font-weight:600;color:${isOver ? 'var(--error)' : 'var(--on-surface)'};">${v}%</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill" style="width:${v}%;background:${isOver ? '#ef4444' : wt.color};"></div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+      ${isFull ? `<div style="margin-top:12px;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--error);font-weight:500;"><i class="fa-solid fa-triangle-exclamation" style="font-size:10px;"></i>Sắp đầy — cần thu gom</div>` : ''}
+      <div style="margin-top:12px;text-align:center;">
+        <button class="btn btn-outline btn-sm w-full" style="justify-content:center;" onclick="event.stopPropagation();goToBinDetail('${bin.id}')">Xem chi tiết</button>
+      </div>
+      ` : `
+      <div style="margin-top:16px; display:flex; flex-direction:column; align-items:center; gap:8px; padding:16px 0;">
+        <div style="width:40px;height:40px;border-radius:50%;background:var(--surface-container);display:flex;align-items:center;justify-content:center;">
+          <i class="fa-solid fa-wifi" style="color:var(--outline-variant);font-size:16px;opacity:0.5;"></i>
+        </div>
+        <div class="space-y-3" style="width:100%;">
+          ${Object.entries(bin.compartments).map(([k, v]) => {
+            const wt = WASTE_TYPES[k];
+            return `
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <span class="body-md" style="font-size:12px;color:var(--outline-variant);">${wt.label}</span>
+                <span class="body-md" style="font-size:12px;color:var(--outline-variant);">--%</span>
+              </div>
+              <div class="progress-track">
+                <div class="progress-fill" style="width:0%;background:var(--outline-variant);"></div>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+        <button class="btn btn-outline btn-sm w-full" style="justify-content:center;margin-top:8px;color:var(--outline);" disabled>Mất kết nối</button>
+      </div>
+      `}
+    </div>`;
+  }).join('');
+}
+
+function renderRewardList() {
+  const list = document.getElementById('reward-list');
+  const medals = ['🥇', '🥈', '🥉'];
+  const medalColors = ['#d97706', '#6b7280', '#b45309'];
+  list.innerHTML = REWARDS.map((r, i) => `
+    <div class="flex items-center gap-3">
+      <span style="font-size:18px; min-width:24px; text-align:center;">${medals[i] || ''}</span>
+      <div style="flex:1; min-width:0;">
+        <div class="flex items-center justify-between" style="margin-bottom:6px;">
+          <span class="body-md" style="font-weight:600; color:var(--on-surface);">${r.name}</span>
+          <span class="body-md" style="font-weight:700; color:${i < 3 ? medalColors[i] : 'var(--outline)'}; font-size:13px;">${r.points.toLocaleString()} đ</span>
+        </div>
+        <div class="progress-track" style="height:5px;">
+          <div class="progress-fill" style="width:${Math.round((r.points/1300)*100)}%; background:var(--primary-container); height:5px;"></div>
+        </div>
+      </div>
+      <span style="font-size:12px; font-weight:600; min-width:32px; text-align:right; color:${r.delta >= 0 ? 'var(--primary-container)' : 'var(--error)'};"
+        >${r.delta >= 0 ? '+' : ''}${r.delta}</span>
+    </div>
+  `).join('');
+  document.getElementById('total-points').textContent =
+    REWARDS.reduce((a, r) => a + r.points, 0).toLocaleString();
+}
+
+function renderAlertsPreview() {
+  const container = document.getElementById('alerts-preview');
+  const active = ALERT_HISTORY.filter(a => a.status === 'pending').slice(0, 3);
+
+  if (active.length === 0) {
+    container.innerHTML = `<div style="padding:40px 20px; text-align:center; color:var(--outline);">
+      <i class="fa-solid fa-circle-check" style="font-size:24px; color:var(--primary-container); margin-bottom:8px; display:block;"></i>
+      <p class="body-md">Không có cảnh báo</p>
+    </div>`;
+    return;
+  }
+
+  container.innerHTML = active.map(a => {
+    const isUrgent = a.fill >= 90;
+    const isOffline = a.compartment === 'Offline';
+    const iconColor = isUrgent ? 'var(--error)' : '#d97706';
+    const bgColor = isUrgent ? 'var(--error-container)' : '#fef3c7';
+    const icon = isOffline ? 'fa-wifi' : 'fa-triangle-exclamation';
+
+    return `
+    <div style="padding:16px 20px; border-bottom:1px solid #E3E8E1; display:flex; gap:12px;">
+      <div style="width:36px;height:36px;border-radius:var(--radius);background:${bgColor};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <i class="fa-solid ${icon}" style="color:${iconColor};font-size:14px;"></i>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <p class="body-md" style="font-weight:600;color:var(--on-surface);font-size:13px;">
+          ${isOffline ? '[Cảnh báo] Bin ' + a.bin + ' — Offline' : '[Khẩn cấp] Bin ' + a.bin + ' — ' + a.compartment}
+        </p>
+        <p style="font-size:12px;color:var(--outline);margin-top:2px;line-height:1.4;">
+          ${isOffline ? 'Mất kết nối quá 30 phút. Kiểm tra nguồn.' : 'Đã vượt ' + a.fill + '% sức chứa. Yêu cầu thu gom ngay.'}
+        </p>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderActivityLog() {
+  const tbody = document.getElementById('activity-log-body');
+  const logs = [
+    { time: '10:30, 24/10/2023', bin: 'Bin A301', type: 'Nhựa', accuracy: '98%', status: 'success' },
+    { time: '10:28, 24/10/2023', bin: 'Bin C205', type: 'Giấy', accuracy: '95%', status: 'success' },
+    { time: '10:15, 24/10/2023', bin: 'Bin A301', type: 'Hữu cơ', accuracy: '45%', status: 'pending' },
+  ];
+
+  tbody.innerHTML = logs.map(log => {
+    const typeColor = log.type === 'Nhựa' ? 'badge-info' : log.type === 'Giấy' ? 'badge-warning' : 'badge-success';
+    const statusBadge = log.status === 'success'
+      ? `<span class="badge badge-pill badge-success">Thành công</span>`
+      : `<span class="badge badge-pill badge-warning">Chờ xác nhận</span>`;
+    return `
+    <tr>
+      <td style="font-size:13px;color:var(--outline);">${log.time}</td>
+      <td><span style="font-weight:600;color:var(--primary-container);">${log.bin}</span></td>
+      <td><span class="badge badge-pill ${typeColor}">${log.type}</span></td>
+      <td style="font-weight:500;">${log.accuracy}</td>
+      <td>${statusBadge}</td>
+    </tr>`;
+  }).join('');
+}
+
+function initOverviewChart() {
+  const ctx = document.getElementById('overview-chart');
+  if (!ctx) return;
+  if (charts.overview) charts.overview.destroy();
+
+  charts.overview = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Nhựa', 'Giấy', 'Hữu cơ'],
+      datasets: [{
+        data: [35, 40, 25],
+        backgroundColor: ['#3b82f6', '#f59e0b', '#22c55e'],
+        borderWidth: 0,
+        hoverOffset: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+      },
+      cutout: '65%',
+    },
+    plugins: [{
+      id: 'centerText',
+      beforeDraw(chart) {
+        const { ctx, width, height } = chart;
+        ctx.save();
+        ctx.font = '700 28px Manrope';
+        ctx.fillStyle = '#121d26';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('128', width / 2, height / 2);
+        ctx.restore();
+      }
+    }]
+  });
+}
+
+function updateDashboardKPIs() {
+  const full = BINS.filter(b => Object.values(b.compartments).some(v => v >= 80)).length;
+  const offline = BINS.filter(b => !b.online).length;
+  const online = BINS.filter(b => b.online).length;
+  document.getElementById('kpi-full').textContent = full;
+  document.getElementById('kpi-offline').innerHTML = `<span style="color:var(--primary-container);">${online}</span><span style="font-size:20px;color:var(--outline);">/${BINS.length}</span>`;
+  const now = new Date();
+  document.getElementById('last-update').textContent =
+    now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+}
+
+function setTimeFilter(range, btn) {
+  // Only handle the day filters
+  const parent = btn.parentElement;
+  parent.querySelectorAll('.time-btn').forEach(b => {
+    b.classList.remove('active-time');
+  });
+  btn.classList.add('active-time');
+}
+
+function simulateUpdate() {
+  BINS.forEach(bin => {
+    Object.keys(bin.compartments).forEach(k => {
+      const delta = Math.floor(Math.random() * 15) - 5;
+      bin.compartments[k] = Math.max(5, Math.min(100, bin.compartments[k] + delta));
+    });
+  });
+  renderBinGrid();
+  updateDashboardKPIs();
+  initOverviewChart();
+  renderAlertsPreview();
+  showToast('Dữ liệu đã cập nhật!');
+}
+
+function goToBinDetail(binId) {
+  document.getElementById('bin-selector').value = binId;
+  showPage('bindetail');
+}
+
+// ================================================================
+// ALERTS — PAGE 2
+// ================================================================
+function renderActiveAlerts() {
+  const container = document.getElementById('active-alerts');
+  const active = ALERT_HISTORY.filter(a => a.status === 'pending');
+  document.getElementById('active-alert-count').textContent = active.length + ' cảnh báo';
+  document.getElementById('alert-badge').textContent = active.length;
+
+  if (active.length === 0) {
+    container.innerHTML = `<div style="padding:40px 20px;text-align:center;color:var(--outline);">
+      <i class="fa-solid fa-circle-check" style="font-size:24px;color:var(--primary-container);margin-bottom:8px;display:block;"></i>
+      <p class="body-md">Không có cảnh báo nào đang hoạt động</p>
+    </div>`;
+    return;
+  }
+  container.innerHTML = active.map(a => {
+    const wt = WASTE_TYPES[a.type === 'Hữu cơ' ? 'organic' : a.type === 'Tái chế' ? 'recycle' : 'inorganic'];
+    return `
+    <div style="padding:14px 20px;display:flex;align-items:center;gap:14px;border-bottom:1px solid #E3E8E1;transition:background 0.1s;" onmouseover="this.style.background='var(--surface-container-low)'" onmouseout="this.style.background=''" id="alert-${a.id}">
+      <div style="width:8px;height:8px;border-radius:50%;background:var(--error);flex-shrink:0;position:relative;" class="pulse-ring"></div>
+      <div style="flex:1;min-width:0;">
+        <p class="body-md" style="font-weight:600;color:var(--on-surface);">Ngăn ${a.compartment} — Bin ${a.bin}</p>
+        <p style="font-size:12px;color:var(--outline);margin-top:2px;">${a.date} · ${a.time}</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="badge badge-pill ${wt.bgClass}">${a.type}</span>
+        <span style="font-weight:700;color:${a.fill >= 90 ? 'var(--error)' : '#d97706'};font-size:14px;">${a.fill}%</span>
+        <button onclick="resolveAlert(${a.id})" class="btn btn-sm" style="background:var(--primary-fixed);color:var(--primary);border:none;">
+          Xử lý
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function resolveAlert(id) {
+  const alert = ALERT_HISTORY.find(a => a.id === id);
+  if (alert) { alert.status = 'resolved'; }
+  renderActiveAlerts();
+  renderAlertHistory();
+  renderAlertsPreview();
+  showToast('Đã đánh dấu đã xử lý!');
+}
+
+function markAllResolved() {
+  ALERT_HISTORY.forEach(a => { if (a.status === 'pending') a.status = 'resolved'; });
+  renderActiveAlerts();
+  renderAlertHistory();
+  renderAlertsPreview();
+  showToast('Tất cả cảnh báo đã xử lý!');
+}
+
+function filterAlertHistory(val) {
+  currentAlertFilter = val;
+  renderAlertHistory();
+}
+
+function filterAlertType(val) {
+  currentAlertTypeFilter = val;
+  renderAlertHistory();
+}
+
+function renderAlertHistory() {
+  const tbody = document.getElementById('alert-history-body');
+  let filtered = ALERT_HISTORY;
+  if (currentAlertFilter !== 'all') filtered = filtered.filter(a => a.status === currentAlertFilter);
+  if (currentAlertTypeFilter !== 'all') filtered = filtered.filter(a => a.type === currentAlertTypeFilter);
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="padding:40px 20px;text-align:center;color:var(--outline);">Không có dữ liệu phù hợp</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = filtered.map(a => {
+    const wt = WASTE_TYPES[a.type === 'Hữu cơ' ? 'organic' : a.type === 'Tái chế' ? 'recycle' : 'inorganic'];
+    const statusBadge = a.status === 'resolved'
+      ? `<span class="badge badge-pill badge-success">Đã xử lý</span>`
+      : `<span class="badge badge-pill badge-error">Chưa xử lý</span>`;
+    return `
+    <tr>
+      <td>
+        <p style="font-weight:600;color:var(--on-surface);">Bin ${a.bin}</p>
+        <p style="font-size:12px;color:var(--outline);">Ngăn ${a.compartment}</p>
+      </td>
+      <td><span class="badge badge-pill ${wt.bgClass}">${a.type}</span></td>
+      <td>
+        <div class="flex items-center gap-2">
+          <div class="progress-track" style="width:64px;">
+            <div class="progress-fill" style="width:${a.fill}%;background:${a.fill>=85?'var(--error)':a.fill>=70?'#d97706':'#22c55e'};"></div>
+          </div>
+          <span style="font-weight:600;font-size:13px;color:${a.fill>=85?'var(--error)':a.fill>=70?'#d97706':'var(--primary-container)'};">${a.fill}%</span>
+        </div>
+      </td>
+      <td style="color:var(--outline);">${a.date}<br><span style="font-size:12px;">${a.time}</span></td>
+      <td>${statusBadge}</td>
+      <td>
+        ${a.status === 'pending' ? `<button onclick="resolveAlert(${a.id})" style="font-size:13px;color:var(--primary-container);background:none;border:none;cursor:pointer;font-weight:500;font-family:Manrope;">Xử lý</button>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function simulateNewAlert() {
+  const bins = ['A301','B102','C205','D101','E302'];
+  const comps = ['Hữu cơ','Tái chế','Vô cơ'];
+  const randBin = bins[Math.floor(Math.random()*bins.length)];
+  const randComp = comps[Math.floor(Math.random()*comps.length)];
+  const fill = 80 + Math.floor(Math.random()*15);
+  const now = new Date();
+  ALERT_HISTORY.unshift({
+    id: Date.now(),
+    bin: randBin, compartment: randComp,
+    fill, type: randComp,
+    time: now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0'),
+    date: now.getDate().toString().padStart(2,'0') + '/' + (now.getMonth()+1).toString().padStart(2,'0') + '/' + now.getFullYear(),
+    status: 'pending'
+  });
+  renderActiveAlerts();
+  renderAlertHistory();
+  renderAlertsPreview();
+  showToast('⚠️ Cảnh báo mới: Ngăn ' + randComp + ' — Bin ' + randBin);
+}
+
+// ================================================================
+// STATISTICS — PAGE 3
+// ================================================================
+const DAILY_DATA = {
+  labels: ['03/06','04/06','05/06','06/06','07/06','08/06','09/06'],
+  organic:   [45, 52, 38, 61, 55, 48, 67],
+  recycle:   [30, 28, 35, 42, 38, 31, 45],
+  inorganic: [22, 25, 18, 30, 27, 22, 35],
+  accuracy:  [89.2, 91.5, 88.0, 93.1, 90.4, 92.8, 94.2],
+};
+
+function initStatCharts() {
+  renderStatSummary();
+
+  // Bar chart
+  if (charts.bar) charts.bar.destroy();
+  charts.bar = new Chart(document.getElementById('bar-chart'), {
+    type: 'bar',
+    data: {
+      labels: ['Hữu cơ', 'Nhựa', 'Giấy'],
+      datasets: [{
+        data: [
+          DAILY_DATA.organic.reduce((a,b)=>a+b,0),
+          DAILY_DATA.recycle.reduce((a,b)=>a+b,0),
+          DAILY_DATA.inorganic.reduce((a,b)=>a+b,0),
+        ],
+        backgroundColor: ['rgba(34,197,94,0.8)', 'rgba(59,130,246,0.8)', 'rgba(245,158,11,0.8)'],
+        borderRadius: 6, borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false } },
+        y: { ticks: { callback: v => v + ' lượt' } }
+      }
+    }
+  });
+
+  // Line chart
+  if (charts.line) charts.line.destroy();
+  charts.line = new Chart(document.getElementById('line-chart'), {
+    type: 'line',
+    data: {
+      labels: DAILY_DATA.labels,
+      datasets: [
+        { label: 'Hữu cơ',  data: DAILY_DATA.organic,   borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.08)',  tension: 0.4, fill: true, pointRadius: 4 },
+        { label: 'Nhựa',     data: DAILY_DATA.recycle,   borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.08)', tension: 0.4, fill: true, pointRadius: 4 },
+        { label: 'Giấy',     data: DAILY_DATA.inorganic, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.08)',tension: 0.4, fill: true, pointRadius: 4 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'top', labels: { boxWidth: 12, padding: 16, usePointStyle: true } } },
+      scales: {
+        x: { grid: { display: false } },
+        y: { ticks: { callback: v => v + ' lượt' } }
+      }
+    }
+  });
+
+  // Doughnut chart
+  const totOrg = DAILY_DATA.organic.reduce((a,b)=>a+b,0);
+  const totRec = DAILY_DATA.recycle.reduce((a,b)=>a+b,0);
+  const totIno = DAILY_DATA.inorganic.reduce((a,b)=>a+b,0);
+  if (charts.doughnut) charts.doughnut.destroy();
+  charts.doughnut = new Chart(document.getElementById('doughnut-chart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Hữu cơ', 'Nhựa', 'Giấy'],
+      datasets: [{ data: [totOrg, totRec, totIno], backgroundColor: ['#22c55e','#3b82f6','#f59e0b'], borderWidth: 0, hoverOffset: 6 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 16, usePointStyle: true } } },
+      cutout: '65%',
+    }
+  });
+
+  // Accuracy line chart
+  if (charts.accuracy) charts.accuracy.destroy();
+  charts.accuracy = new Chart(document.getElementById('accuracy-chart'), {
+    type: 'line',
+    data: {
+      labels: DAILY_DATA.labels,
+      datasets: [{
+        label: 'Độ chính xác (%)',
+        data: DAILY_DATA.accuracy,
+        borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.08)',
+        tension: 0.4, fill: true, pointRadius: 4, pointBackgroundColor: '#8b5cf6',
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false } },
+        y: { min: 80, max: 100, ticks: { callback: v => v + '%' } }
+      }
+    }
+  });
+}
+
+function renderStatSummary() {
+  document.getElementById('stat-organic').textContent =   DAILY_DATA.organic.reduce((a,b)=>a+b,0);
+  document.getElementById('stat-recycle').textContent =   DAILY_DATA.recycle.reduce((a,b)=>a+b,0);
+  document.getElementById('stat-inorganic').textContent = DAILY_DATA.inorganic.reduce((a,b)=>a+b,0);
+}
+
+function updateCharts() {
+  initStatCharts();
+}
+
+// ================================================================
+// BIN DETAIL — PAGE 4
+// ================================================================
+function loadBinDetail(binId) {
+  const bin = BINS.find(b => b.id === binId);
+  if (!bin) return;
+
+  document.getElementById('detail-bin-id').textContent = bin.name;
+  document.getElementById('detail-bin-location').textContent = bin.location;
+  document.getElementById('detail-status-text').textContent = bin.online ? 'Online' : 'Offline';
+  document.getElementById('detail-status-text').style.color = bin.online ? 'var(--primary-container)' : 'var(--error)';
+  document.getElementById('detail-status-text').style.fontWeight = '600';
+  document.getElementById('detail-status-dot').className = 'status-dot ' + (bin.online ? 'status-online' : 'status-offline');
+  document.getElementById('detail-last-seen').textContent = bin.online ? 'vừa xong' : '25 phút trước';
+
+  // Render fill gauges
+  const gaugesEl = document.getElementById('fill-gauges');
+  const compEntries = Object.entries(bin.compartments);
+  gaugesEl.innerHTML = compEntries.map(([k, v]) => {
+    const wt = WASTE_TYPES[k];
+    const thresh = (THRESHOLDS[binId] || {})[k] || 80;
+    const overThresh = v >= thresh;
+    return `
+    <div>
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-2">
+          <span style="width:10px;height:10px;border-radius:50%;background:${wt.color};display:inline-block;"></span>
+          <span class="body-md" style="font-weight:600;color:var(--on-surface);">Ngăn ${wt.label}</span>
+        </div>
+        <span style="font-weight:700;font-size:14px;color:${overThresh ? 'var(--error)' : wt.color};">${v}%${overThresh ? ' — Đầy' : ''}</span>
+      </div>
+      <div class="progress-track" style="height:10px;">
+        <div class="progress-fill" style="width:${v}%;background:${overThresh?'#ef4444':wt.color};height:10px;border-radius:var(--radius-full);transition:width 0.7s ease;"></div>
+      </div>
+      <div class="flex justify-between mt-1" style="font-size:11px;color:var(--outline);">
+        <span>0%</span>
+        <span style="color:${overThresh?'var(--error)':'var(--outline)'};">Ngưỡng báo: ${thresh}%</span>
+        <span>100%</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Render classify history
+  const tbody = document.getElementById('classify-history');
+  document.getElementById('history-count').textContent = CLASSIFY_HISTORY_A1.length + ' lượt';
+  tbody.innerHTML = CLASSIFY_HISTORY_A1.map(row => {
+    const wt = WASTE_TYPES[row.type];
+    const accColor = row.accuracy >= 90 ? 'var(--primary-container)' : row.accuracy >= 80 ? '#d97706' : 'var(--error)';
+    const resultBadge = row.result === 'success'
+      ? `<span class="badge badge-pill badge-success">Thành công</span>`
+      : `<span class="badge badge-pill badge-error">Từ chối</span>`;
+    return `
+    <tr>
+      <td class="font-mono" style="font-size:13px;color:var(--outline);">${row.time}</td>
+      <td><span class="badge badge-pill ${wt.bgClass}">${wt.label}</span></td>
+      <td style="color:var(--outline);">Ngăn ${row.compartment}</td>
+      <td>
+        <div class="flex items-center gap-2">
+          <div class="progress-track" style="width:48px;">
+            <div class="progress-fill" style="width:${row.accuracy}%;background:${row.accuracy>=90?'#22c55e':row.accuracy>=80?'#d97706':'var(--error)'};"></div>
+          </div>
+          <span style="font-weight:600;font-size:13px;color:${accColor};">${row.accuracy.toFixed(1)}%</span>
+        </div>
+      </td>
+      <td>${resultBadge}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ================================================================
+// CONFIG — PAGE 5
+// ================================================================
+function selectThresholdBin(binId, clickedBtn) {
+  currentThresholdBin = binId;
+  document.querySelectorAll('.thresh-tab').forEach(b => {
+    b.classList.remove('active-time');
+  });
+  if (clickedBtn) {
+    clickedBtn.classList.add('active-time');
+  } else {
+    document.querySelectorAll('.thresh-tab').forEach(b => {
+      if (b.textContent.trim() === binId) {
+        b.classList.add('active-time');
+      }
+    });
+  }
+  renderThresholdForm(binId);
+}
+
+function renderThresholdForm(binId) {
+  const thresholds = THRESHOLDS[binId] || { organic: 80, recycle: 85, inorganic: 90 };
+  const form = document.getElementById('threshold-form');
+  const entries = [
+    { key: 'organic',   label: 'Ngăn Hữu cơ',  icon: 'fa-leaf',     color: '#22c55e', bgColor: '#dcfce7' },
+    { key: 'recycle',   label: 'Ngăn Nhựa',     icon: 'fa-recycle',  color: '#3b82f6', bgColor: '#dbeafe' },
+    { key: 'inorganic', label: 'Ngăn Giấy',     icon: 'fa-newspaper',color: '#f59e0b', bgColor: '#fef3c7' },
+  ];
+
+  form.innerHTML = entries.map(e => `
+    <div style="padding:16px;background:var(--surface-container-low);border-radius:var(--radius-lg);border:1px solid #E3E8E1;">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid ${e.icon}" style="color:${e.color};font-size:14px;"></i>
+          <span class="body-md" style="font-weight:600;color:var(--on-surface);">${e.label}</span>
+        </div>
+        <span class="badge badge-pill" style="font-weight:700;background:${e.bgColor};color:${e.color};" id="thresh-val-${e.key}">${thresholds[e.key]}%</span>
+      </div>
+      <input type="range" min="50" max="100" value="${thresholds[e.key]}"
+        oninput="document.getElementById('thresh-val-${e.key}').textContent = this.value + '%'; THRESHOLDS['${binId}']['${e.key}'] = parseInt(this.value)" />
+      <div class="flex justify-between mt-1" style="font-size:11px;color:var(--outline);"><span>50%</span><span>Cảnh báo khi ≥ ngưỡng</span><span>100%</span></div>
+    </div>
+  `).join('');
+}
+
+function saveConfig(type) {
+  const msgs = { ai: 'Đã lưu cấu hình AI!', threshold: 'Đã lưu ngưỡng cảnh báo!', network: 'Đã lưu cấu hình mạng!' };
+  showToast(msgs[type] || 'Đã lưu!');
+}
+
+// ================================================================
+// TOAST UTILITY
+// ================================================================
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  toast.classList.add('visible');
+  setTimeout(() => {
+    toast.classList.remove('visible');
+  }, 2800);
+}
+
+// ================================================================
+// SET DEFAULT DATE FILTERS
+// ================================================================
+function initDateFilters() {
+  const today = new Date();
+  const fmt = d => d.toISOString().split('T')[0];
+  const weekAgo = new Date(today); weekAgo.setDate(today.getDate() - 7);
+  document.getElementById('filter-from').value = fmt(weekAgo);
+  document.getElementById('filter-to').value = fmt(today);
+}
+
+// ================================================================
+// INIT
+// ================================================================
+(function init() {
+  renderBinGrid();
+  renderAlertsPreview();
+  renderRewardList();
+  renderActivityLog();
+  updateDashboardKPIs();
+  initOverviewChart();
+  renderActiveAlerts();
+  renderAlertHistory();
+  initDateFilters();
+  // Live clock update
+  setInterval(() => {
+    const now = new Date();
+    const el = document.getElementById('last-update');
+    if (el) el.textContent = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+  }, 30000);
+})();
+</script>
+
+</body>
+</html>
