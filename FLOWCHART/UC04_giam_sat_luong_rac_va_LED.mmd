@@ -1,37 +1,42 @@
-flowchart TD
-    start([Bắt đầu UC4])
-    trigger[/"Input / Trigger: Nắp thùng vừa đóng<br/>Ngưỡng đầy đã cấu hình"/]
-    sensor["Device: Cảm biến siêu âm<br/>phát sóng và nhận tín hiệu phản hồi"]
-    valid{"Tín hiệu hợp lệ?<br/>Không mất kết nối, không âm,<br/>không sai lệch kéo dài"}
-    fault["Mạch điều khiển kích hoạt<br/>chế độ cảnh báo an toàn"]
-    faultLed["Device: LED đỏ<br/>nhấp nháy liên tục"]
-    faultOut[/"Output lỗi: Thông báo nhân viên<br/>đến kiểm tra cảm biến"/]
-    calculate["Tính khoảng cách và<br/>phần trăm đầy của từng ngăn"]
-    threshold{"Mức đầy đạt hoặc<br/>vượt ngưỡng?"}
-    normalLed["Device: LED xanh<br/>hiển thị trạng thái bình thường"]
-    fullLed["Device: LED đỏ<br/>nhấp nháy cảnh báo đầy"]
-    normalOut[/"Output: Cập nhật trạng thái<br/>ngăn còn chỗ"/]
-    fullOut[/"Output: Cập nhật trạng thái<br/>ngăn đầy"/]
-    finish([Kết thúc UC4])
+---
+config:
+  layout: dagre
+---
+flowchart TB
+    start(["UC4: Giám sát lượng rác và cập nhật đèn tín hiệu "]) --> trigger[/"Input / Trigger: Nắp thùng vừa đóng<br>Ngưỡng đầy đã cấu hình"/]
+    trigger --> sensor["Device: Cảm biến siêu âm<br>phát sóng và nhận tín hiệu phản hồi"]
+    sensor --> valid{"Tín hiệu hợp lệ?<br>Không mất kết nối, không âm,<br>không sai lệch kéo dài"}
+    valid -- Không --> fault["Mạch điều khiển gửi<br>thông báo lỗi an toàn"]
+    fault --> faultLed["Device: LED đỏ<br>nhấp nháy liên tục"]
+    faultLed --> faultOut[/"Output lỗi: Thông báo nhân viên<br>đến kiểm tra cảm biến"/]
+    faultOut --> finish(["Kết thúc UC4"])
+    valid -- Có --> calculate["Tính khoảng cách và<br>phần trăm đầy của từng ngăn"]
+    calculate --> threshold{"Mức đầy đạt hoặc<br>vượt ngưỡng?"}
+    threshold -- Không --> normalLed["Device: LED xanh<br>hiển thị trạng thái bình thường"]
+    normalLed --> normalOut[/"Output: Cập nhật trạng thái<br>ngăn còn chỗ"/]
+    normalOut --> finish
+    threshold -- Có --> fullLed["Device: LED đỏ<br>nhấp nháy thể hiện thông báo đầy"]
+    fullLed --> fullOut[/"Output: Cập nhật trạng thái<br>ngăn đầy"/]
+    fullOut --> finish
 
-    start --> trigger --> sensor --> valid
-    valid -- Không --> fault --> faultLed --> faultOut --> finish
-    valid -- Có --> calculate --> threshold
-    threshold -- Không --> normalLed --> normalOut --> finish
-    threshold -- Có --> fullLed --> fullOut --> finish
-
-    classDef device fill:#dbeafe,stroke:#2563eb,color:#102a56;
-    classDef input fill:#fef9c3,stroke:#ca8a04,color:#422006;
-    classDef process fill:#f3e8ff,stroke:#9333ea,color:#3b0764;
-    classDef decision fill:#ffedd5,stroke:#ea580c,color:#431407;
-    classDef output fill:#dcfce7,stroke:#16a34a,color:#052e16;
-    classDef warning fill:#fee2e2,stroke:#dc2626,color:#450a0a;
-    classDef terminal fill:#e5e7eb,stroke:#4b5563,color:#111827;
-
-    class sensor,faultLed,normalLed,fullLed device;
-    class trigger input;
-    class calculate process;
-    class valid,threshold decision;
-    class normalOut,fullOut output;
-    class fault,faultOut warning;
-    class start,finish terminal;
+     start:::terminal
+     trigger:::input
+     sensor:::device
+     valid:::decision
+     fault:::warning
+     faultLed:::device
+     faultOut:::warning
+     calculate:::process
+     threshold:::decision
+     normalLed:::device
+     fullLed:::device
+     normalOut:::output
+     fullOut:::output
+     finish:::terminal
+    classDef device fill:#dbeafe,stroke:#2563eb,color:#102a56
+    classDef input fill:#fef9c3,stroke:#ca8a04,color:#422006
+    classDef process fill:#f3e8ff,stroke:#9333ea,color:#3b0764
+    classDef decision fill:#ffedd5,stroke:#ea580c,color:#431407
+    classDef output fill:#dcfce7,stroke:#16a34a,color:#052e16
+    classDef warning fill:#fee2e2,stroke:#dc2626,color:#450a0a
+    classDef terminal fill:#e5e7eb,stroke:#4b5563,color:#111827

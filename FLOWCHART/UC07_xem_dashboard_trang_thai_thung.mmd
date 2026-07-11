@@ -1,7 +1,7 @@
 flowchart TD
-    start([Bắt đầu UC7])
+    start([UC7: Xem dashboard trạng thái thùng])
     actor["Actor: Quản lý / Nhân viên dọn dẹp"]
-    trigger[/"Input / Trigger: Mở dashboard<br/>hoặc chọn cảnh báo vừa nhận"/]
+    trigger[/"Input / Trigger: Mở dashboard<br/>hoặc chọn thông báo đầy vừa nhận"/]
     request["Dashboard gửi yêu cầu<br/>lấy dữ liệu hệ thống"]
     server[("Server / Cơ sở dữ liệu<br/>trả trạng thái và thống kê")]
     connection{"Thiết bị đang<br/>trực tuyến?"}
@@ -9,7 +9,7 @@ flowchart TD
     offline["Hiển thị trạng thái ngoại tuyến<br/>và dữ liệu cập nhật lần cuối"]
     filter{"Người dùng có<br/>áp dụng bộ lọc?"}
     apply["Lọc theo thùng, loại rác<br/>và khoảng thời gian"]
-    overview["Hiển thị danh sách thùng,<br/>cảnh báo và thống kê tổng quan"]
+    overview["Hiển thị danh sách thùng,<br/>thông báo đầy và thống kê tổng quan"]
     output[/"Output: Người dùng nắm được<br/>trạng thái toàn bộ hệ thống"/]
     finish([Kết thúc UC7])
 
