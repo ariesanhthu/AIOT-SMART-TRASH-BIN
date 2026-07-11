@@ -1,0 +1,7 @@
+{
+  "confidence_min": 0.5,
+  "margin_min": 0.0,
+  "paper_distance_max": 6.3018083572387695,
+  "plastic_distance_max": 2.7673752784728993,
+  "use_embedding_distance": true
+}

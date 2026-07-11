@@ -1,0 +1,24 @@
+{
+  "model": "artifacts/model_float.keras",
+  "target_other_false_accept": 0.1,
+  "min_known_recall": 0.85,
+  "known_samples": 144,
+  "other_samples": 184,
+  "thresholds": {
+    "confidence_min": 0.5,
+    "margin_min": 0.0,
+    "paper_distance_max": 6.3018083572387695,
+    "plastic_distance_max": 2.7673752784728993,
+    "use_embedding_distance": true
+  },
+  "metrics": {
+    "known_accuracy": 0.875,
+    "known_reject_rate": 0.027777777777777776,
+    "paper_recall": 0.891566265060241,
+    "plastic_recall": 0.8524590163934426,
+    "other_false_accept_rate": 0.9510869565217391,
+    "macro_recall": 0.5976461083106481,
+    "feasible": false,
+    "selection_policy": "best_tradeoff_no_feasible_threshold"
+  }
+}

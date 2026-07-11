@@ -1,0 +1,4 @@
+actual/predicted,paper,plastic,other
+paper,95,12,1
+plastic,10,61,3
+other,64,170,15

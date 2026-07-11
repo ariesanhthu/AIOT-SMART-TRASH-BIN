@@ -1,0 +1,13 @@
+{
+  "data": "trashnet/data",
+  "image_size": 96,
+  "batch_size": 16,
+  "epochs": 100,
+  "patience": 15,
+  "learning_rate": 0.001,
+  "weight_decay": 0.0001,
+  "label_smoothing": 0.05,
+  "out": "artifacts",
+  "seed": 42,
+  "no_augment": false
+}
