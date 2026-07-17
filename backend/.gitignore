@@ -52,3 +52,7 @@ buildNumber.properties
 .env
 .env.*
 !.env.example
+
+
+secrets/
+secrets/*.json

@@ -8,6 +8,8 @@
 
 **Mục đích:** Xác định requirement nào thực sự ràng buộc kiến trúc database, tránh thiết kế theo cảm tính.
 
+**Cập nhật kiến trúc:** nhóm chốt lại hướng ESP32 ghi/đọc Firestore trực tiếp thay vì qua backend REST API ở chiều thiết bị; Dashboard vẫn qua backend riêng. Các phân tích ở mục 3.1–3.4 dưới đây về **field/collection nào cần có** vẫn giữ nguyên giá trị (schema không đổi), chỉ khác ở **nơi thực thi validate và side-effect**: trước đây giả định do code backend làm, giờ chuyển sang Firestore Security Rules (validate khi ghi) và Cloud Functions trigger (side-effect sau khi ghi, ví dụ tăng `daily_stats`). Mục 3.5 dưới đây được viết lại chi tiết hơn vì đây là phần bị ảnh hưởng nhiều nhất bởi thay đổi này (chiều cấu hình từ dashboard xuống thiết bị).
+
 ---
 
 
@@ -58,12 +60,15 @@ Tuy nhiên có 2 điểm cần ghi nhận vì chúng là **nguồn gốc dữ li
 
 ### 3.5 Nhóm Cấu hình & Quản lý thiết bị từ xa
 
+**Cập nhật kiến trúc:** nhóm chốt hướng ESP32 ghi/đọc Firestore trực tiếp (không qua backend ở chiều thiết bị), còn Dashboard vẫn qua backend. Vì ESP32 không giữ kết nối real-time (tránh polling liên tục), chiều "server đẩy lệnh xuống thiết bị" đổi thành "thiết bị tự đọc cấu hình mới nhất theo chu kỳ" — chi tiết cơ chế pull ở `De_xuat_thiet_ke_DB.md` mục 2.2. Điều này làm thay đổi bản chất ràng buộc của NFREQ.19 dưới đây so với phân tích ban đầu.
+
 | Requirement | Nội dung | Ràng buộc lên DB |
 |---|---|---|
-| FREQ.9 | Cấu hình ngưỡng đầy riêng từng ngăn, cập nhật về mạch | Field `threshold` theo từng ngăn; cần cơ chế đẩy thay đổi này xuống firmware |
-| FREQ.11 | Bật/tắt chế độ bảo trì từ dashboard | Field `maintenance_mode`; firmware phải nhận được thay đổi gần như ngay lập tức |
-| NFREQ.19 | Lệnh cấu hình áp dụng ≤ 7 giây nếu thiết bị online | **Ràng buộc hai chiều**: không chỉ dashboard cần real-time, firmware cũng phải lắng nghe real-time (không thể chỉ poll định kỳ chậm) |
-| FREQ.10 | Upload model AI mới từ dashboard; server lưu, đẩy xuống khi online; firmware xác nhận version | Cần cơ chế lưu và theo dõi **version của model** — thiết kế trước đó **chưa có chỗ cho việc này** |
+| FREQ.9 | Cấu hình ngưỡng đầy riêng từng ngăn, cập nhật về mạch | Field `threshold` theo từng ngăn trong `devices`; **không cần** cơ chế đẩy real-time — firmware tự đọc field này theo chu kỳ (piggyback khi ghi event + heartbeat 30–60s) |
+| FREQ.11 | Bật/tắt chế độ bảo trì từ dashboard | Field `maintenance_mode`; firmware nhận thay đổi ở lần đọc kế tiếp, không phải ngay lập tức |
+| NFREQ.19 | Lệnh cấu hình áp dụng ≤ 7 giây nếu thiết bị online | **Đã nới lại**: với mô hình pull, DB không thể tự đảm bảo mốc ≤ 7 giây trong mọi tình huống (phụ thuộc tần suất hoạt động của thiết bị và chu kỳ heartbeat). Cần sửa con số này trong spec chính, hoặc chấp nhận đầu tư thêm MQTT (ESP32 subscribe topic, Cloud Function publish khi `devices/{deviceId}` đổi) nếu muốn giữ real-time thật sự mà không cần polling liên tục |
+| FREQ.10 | Upload model AI mới từ dashboard; server lưu, đẩy xuống khi online; firmware xác nhận version | Cần cơ chế lưu và theo dõi **version của model** — thiết kế trước đó **chưa có chỗ cho việc này**; nhóm hiện chọn nạp thủ công model, DB chỉ lưu `ai_model_version` để truy vết (xem `De_xuat_thiet_ke_DB.md` mục 5) |
+| *(mới)* Bảo mật ghi trực tiếp | ESP32 giờ có quyền ghi thẳng vào Firestore | Không còn backend chặn giữa để validate/giới hạn quyền ghi như phân tích ban đầu giả định (mục 3.1). Cần Firestore Security Rules giới hạn thiết bị chỉ ghi/đọc đúng `devices/{deviceId}` của chính nó, dùng Firebase Auth device credential riêng — liên quan trực tiếp NFREQ.15 |
 
 ### 3.6 Nhóm Bảo mật & Khả năng mở rộng
 
@@ -72,5 +77,3 @@ Tuy nhiên có 2 điểm cần ghi nhận vì chúng là **nguồn gốc dữ li
 | NFREQ.14 | Yêu cầu xác thực cho tính năng quản trị | Cần entity người dùng với phân quyền (role) |
 | NFREQ.15 | Không lưu thông tin xác thực trong mã nguồn firmware | Không ảnh hưởng schema, nhưng ảnh hưởng cơ chế cấp quyền ghi cho thiết bị (device-specific credential, không phải admin credential) |
 | NFREQ.7 | Hỗ trợ tối thiểu 10 thiết bị đồng thời, không đổi kiến trúc | Bắt buộc `device_id` phải là khoá phân vùng (partition key) xuyên suốt toàn bộ schema ngay từ đầu |
-
-
