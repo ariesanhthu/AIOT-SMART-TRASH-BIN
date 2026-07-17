@@ -1,0 +1,64 @@
+rules_version = '2';
+
+// Backend uses the Admin SDK (FirebaseConfig.java), which bypasses these
+// rules entirely. Everything below governs ONLY direct client access —
+// in this system that means the ESP32 devices (see
+// docs/architecture/De_xuat_thiet_ke_DB.md section 2.1). The dashboard
+// never talks to Firestore directly, so it gets no allowances here.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isDevice(deviceId) {
+      return request.auth != null
+        && request.auth.token.device_id == deviceId;
+    }
+
+    // A compartment type's threshold is set by an admin via the backend
+    // (Admin SDK, bypasses rules) and must never move through a device write.
+    function compartmentThresholdsUnchanged() {
+      let before = resource.data.compartments;
+      let after = request.resource.data.compartments;
+      return after.organic.threshold == before.organic.threshold
+        && after.paper.threshold == before.paper.threshold
+        && after.plastic.threshold == before.plastic.threshold;
+    }
+
+    function maintenanceModeUnchanged() {
+      return request.resource.data.maintenance_mode == resource.data.maintenance_mode;
+    }
+
+    match /devices/{deviceId} {
+      allow read: if isDevice(deviceId);
+
+      // Device may only update its own telemetry fields, never the
+      // admin-configured threshold/maintenance_mode fields.
+      allow update: if isDevice(deviceId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['fill_percent', 'status', 'compartments', 'last_seen_at', 'firmware_version', 'ai_model_version'])
+        && compartmentThresholdsUnchanged()
+        && maintenanceModeUnchanged();
+
+      allow create, delete: if false;
+
+      match /events/{eventId} {
+        // Insert-only event log; devices append, never edit or remove history.
+        allow read: if isDevice(deviceId);
+        allow create: if isDevice(deviceId)
+          && request.resource.data.device_timestamp is timestamp;
+        allow update, delete: if false;
+      }
+    }
+
+    // daily_stats is written only by Cloud Functions (Admin SDK) and read
+    // only by the backend (Admin SDK) on behalf of the dashboard.
+    match /daily_stats/{statId} {
+      allow read, write: if false;
+    }
+
+    // users is written/read only by the backend (Admin SDK).
+    match /users/{uid} {
+      allow read, write: if false;
+    }
+  }
+}

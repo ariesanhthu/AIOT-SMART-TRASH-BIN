@@ -23,13 +23,19 @@ public class FirebaseAuthFilter extends OncePerRequestFilter {
     private static final String AUTH_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
 
+    private static final String DEVICE_AUTH_TOKEN_PATTERN = "^/api/devices/[^/]+/auth-token$";
+
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
         boolean isApi = path.startsWith("/api/");
         boolean isWrite = !"GET".equalsIgnoreCase(request.getMethod());
+        // Thiết bị chưa có Firebase ID Token lúc gọi endpoint cấp token
+        // (đó chính là mục đích của endpoint này) — xác thực bằng
+        // provisioning secret trong DeviceAuthService thay vì filter này.
+        boolean isDeviceProvisioning = path.matches(DEVICE_AUTH_TOKEN_PATTERN);
         // Chỉ áp dụng filter cho request ghi vào /api/**
-        return !(isApi && isWrite);
+        return isDeviceProvisioning || !(isApi && isWrite);
     }
 
     @Override
