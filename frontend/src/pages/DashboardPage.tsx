@@ -9,10 +9,9 @@ interface Props {
   bins: Bin[];
   alerts: typeof ALERT_HISTORY;
   setPage: (page: string) => void;
-  showToast: (msg: string) => void;
 }
 
-export const DashboardPage: React.FC<Props> = ({ bins, alerts, setPage, showToast }) => {
+export const DashboardPage: React.FC<Props> = ({ bins, alerts, setPage }) => {
   const fullBins = useMemo(() => bins.filter(b => Object.values(b.compartments).some(v => v >= 80)).length, [bins]);
   const onlineBins = useMemo(() => bins.filter(b => b.online).length, [bins]);
   const dashBins = bins.slice(0, 4);
@@ -107,9 +106,6 @@ export const DashboardPage: React.FC<Props> = ({ bins, alerts, setPage, showToas
           </div>
           <div className="grid-2">
             {dashBins.map(bin => {
-              const fills = Object.values(bin.compartments);
-              const maxFill = Math.max(...fills);
-              const isFull = maxFill >= 80;
               return (
                 <div key={bin.id} onClick={() => setPage('bindetail')} className="card card-padding card-interactive" style={{ position: 'relative' }}>
                   <div className="flex items-start justify-between mb-3">

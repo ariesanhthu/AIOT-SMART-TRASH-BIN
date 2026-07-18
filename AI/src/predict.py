@@ -1,88 +1,76 @@
+"""Classify one image with the float or INT8 three-class model."""
+
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
-import zipfile
+import json
 
 import numpy as np
 
 try:
-    from .dataset_cnn import ID_TO_LABEL, THREE_WAY_LABELS
-    from .dataset_cnn import preprocess_encoded_image, preprocess_image, read_image
-    from .evaluate_model import (
-        load_centroids,
-        load_json,
-        load_predictor,
-        reject_predictions,
-        softmax,
+    from .config import DEFAULT_INT8_MODEL, DEFAULT_METADATA, LABELS, resolve_input_path
+    from .dataset import preprocess_file
+    from .evaluate_model import load_predictor
+    from .metadata import (
+        read_json,
+        validate_metadata_contract,
+        verify_artifact_hash,
     )
+    from .metrics import stable_softmax
 except ImportError:
-    from dataset_cnn import ID_TO_LABEL, THREE_WAY_LABELS
-    from dataset_cnn import preprocess_encoded_image, preprocess_image, read_image
-    from evaluate_model import (
-        load_centroids,
-        load_json,
-        load_predictor,
-        reject_predictions,
-        softmax,
-    )
+    from config import DEFAULT_INT8_MODEL, DEFAULT_METADATA, LABELS, resolve_input_path  # type: ignore
+    from dataset import preprocess_file  # type: ignore
+    from evaluate_model import load_predictor  # type: ignore
+    from metadata import read_json, validate_metadata_contract, verify_artifact_hash  # type: ignore
+    from metrics import stable_softmax  # type: ignore
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Classify one trash image.")
-    parser.add_argument("--model", default="artifacts/model_int8.tflite")
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--image", required=True)
-    parser.add_argument("--zip-member")
-    parser.add_argument("--thresholds", default="artifacts/thresholds.json")
-    parser.add_argument("--centroids", default="artifacts/centroids.json")
-    parser.add_argument("--image-size", type=int, default=96)
-    parser.add_argument(
-        "--threshold",
-        type=float,
-        default=None,
-        help="Override confidence_min from thresholds.json.",
-    )
+    parser.add_argument("--model", default=str(DEFAULT_INT8_MODEL))
+    parser.add_argument("--metadata", default=str(DEFAULT_METADATA))
+    parser.add_argument("--json", action="store_true", dest="as_json")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    image = load_image(args.image, args.zip_member, args.image_size)
-    x = image[np.newaxis, ...].astype(np.float32)
+    image_path = resolve_input_path(args.image)
+    model_path = resolve_input_path(args.model)
+    metadata_path = resolve_input_path(args.metadata)
 
-    predictor = load_predictor(args.model)
-    logits, embeddings = predictor.predict(x)
-    probabilities = softmax(logits)[0]
-    raw_label_id = int(np.argmax(probabilities))
+    metadata = read_json(metadata_path)
+    validate_metadata_contract(metadata)
+    artifact_key = "int8_model" if model_path.suffix.lower() == ".tflite" else "float_model"
+    verify_artifact_hash(metadata, artifact_key, model_path)
 
-    thresholds = load_json(args.thresholds) if Path(args.thresholds).is_file() else None
-    if thresholds is not None and args.threshold is not None:
-        thresholds["confidence_min"] = args.threshold
-    centroids = load_centroids(args.centroids) if Path(args.centroids).is_file() else None
-    result_id = int(reject_predictions(logits, embeddings, thresholds, centroids)[0])
+    image = preprocess_file(image_path)
+    predictor = load_predictor(model_path)
+    logits = np.asarray(predictor.predict_one(image), dtype=np.float32)
+    probabilities = stable_softmax(logits[np.newaxis, ...])[0]
+    predicted_index = int(np.argmax(logits))
+    result = {
+        "image": str(image_path),
+        "model": str(model_path),
+        "model_version": metadata["model_version"],
+        "class_index": predicted_index,
+        "label": LABELS[predicted_index],
+        "confidence": float(probabilities[predicted_index]),
+        "logits": {label: float(logits[index]) for index, label in enumerate(LABELS)},
+        "probabilities": {
+            label: float(probabilities[index]) for index, label in enumerate(LABELS)
+        },
+    }
+    if args.as_json:
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        return
 
-    print(f"Image: {args.zip_member or args.image}")
-    print(f"Raw prediction: {ID_TO_LABEL[raw_label_id]}")
-    print(f"Decision: {THREE_WAY_LABELS[result_id].upper()}")
-    print(f"Confidence: {float(np.max(probabilities)):.4f}")
-    print(f"Margin: {float(abs(probabilities[0] - probabilities[1])):.4f}")
-    print("Probabilities:")
-    for label_id, label in ID_TO_LABEL.items():
-        print(f"  {label}: {float(probabilities[label_id]):.4f}")
-
-
-def load_image(image: str, zip_member: str | None, image_size: int) -> np.ndarray:
-    if zip_member is None:
-        image_path = Path(image)
-        if not image_path.is_file():
-            raise FileNotFoundError(f"Image not found: {image_path}")
-        return preprocess_image(read_image(image_path), image_size)
-
-    zip_path = Path(image)
-    if not zip_path.is_file():
-        raise FileNotFoundError(f"ZIP not found: {zip_path}")
-    with zipfile.ZipFile(zip_path) as archive:
-        return preprocess_encoded_image(archive.read(zip_member), image_size)
+    print(f"Image: {result['image']}")
+    print(f"Decision: {result['label'].upper()}")
+    print(f"Confidence: {result['confidence']:.4f}")
+    for label in LABELS:
+        print(f"  {label}: {result['probabilities'][label]:.4f}")
 
 
 if __name__ == "__main__":

@@ -1,345 +1,302 @@
+"""Evaluate float and INT8 models and enforce deployment parity gates."""
+
 from __future__ import annotations
 
 import argparse
-import csv
 import json
 from pathlib import Path
 
 import numpy as np
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
-from sklearn.metrics import f1_score
 import tensorflow as tf
 
 try:
-    from .dataset_cnn import (
-        ID_TO_LABEL,
-        OTHER_LABEL,
-        THREE_WAY_LABELS,
-        load_dataset_splits,
-        load_images,
-        samples_from_class_dirs,
+    from .config import (
+        DEFAULT_ARTIFACT_DIR,
+        DEFAULT_DATA_DIR,
+        DEFAULT_FLOAT_MODEL,
+        DEFAULT_INT8_MODEL,
+        DEFAULT_METADATA,
+        IMAGE_CHANNELS,
+        IMAGE_SIZE,
+        LABELS,
+        MAX_INT8_ACCURACY_DROP,
+        MAX_TFLITE_SIZE_BYTES,
+        MIN_FLOAT_INT8_AGREEMENT,
+        MIN_INT8_CLASS_RECALL,
+        MIN_INT8_MACRO_F1,
+        resolve_input_path,
+        resolve_output_path,
     )
+    from .dataset import load_dataset_index, make_dataset
+    from .export_int8 import inspect_tflite_model
+    from .metadata import (
+        read_json,
+        sha256_file,
+        validate_metadata_contract,
+        verify_artifact_hash,
+        write_json_atomic,
+        write_text_atomic,
+    )
+    from .metrics import classification_metrics
+    from .model import validate_model_contract
 except ImportError:
-    from dataset_cnn import (
-        ID_TO_LABEL,
-        OTHER_LABEL,
-        THREE_WAY_LABELS,
-        load_dataset_splits,
-        load_images,
-        samples_from_class_dirs,
+    from config import (  # type: ignore
+        DEFAULT_ARTIFACT_DIR,
+        DEFAULT_DATA_DIR,
+        DEFAULT_FLOAT_MODEL,
+        DEFAULT_INT8_MODEL,
+        DEFAULT_METADATA,
+        IMAGE_CHANNELS,
+        IMAGE_SIZE,
+        LABELS,
+        MAX_INT8_ACCURACY_DROP,
+        MAX_TFLITE_SIZE_BYTES,
+        MIN_FLOAT_INT8_AGREEMENT,
+        MIN_INT8_CLASS_RECALL,
+        MIN_INT8_MACRO_F1,
+        resolve_input_path,
+        resolve_output_path,
     )
+    from dataset import load_dataset_index, make_dataset  # type: ignore
+    from export_int8 import inspect_tflite_model  # type: ignore
+    from metadata import (  # type: ignore
+        read_json,
+        sha256_file,
+        validate_metadata_contract,
+        verify_artifact_hash,
+        write_json_atomic,
+        write_text_atomic,
+    )
+    from metrics import classification_metrics  # type: ignore
+    from model import validate_model_contract  # type: ignore
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Evaluate float or INT8 model.")
-    parser.add_argument("--model", default="artifacts/model_int8.tflite")
-    parser.add_argument("--data", default="trashnet/data")
-    parser.add_argument("--thresholds", default="artifacts/thresholds.json")
-    parser.add_argument("--centroids", default="artifacts/centroids.json")
-    parser.add_argument("--image-size", type=int, default=96)
-    parser.add_argument("--out", default="artifacts")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--float-model", default=str(DEFAULT_FLOAT_MODEL))
+    parser.add_argument("--int8-model", default=str(DEFAULT_INT8_MODEL))
+    parser.add_argument("--metadata", default=str(DEFAULT_METADATA))
+    parser.add_argument("--data", default=str(DEFAULT_DATA_DIR))
+    parser.add_argument("--out", default=str(DEFAULT_ARTIFACT_DIR))
+    parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument(
+        "--max-accuracy-drop", type=float, default=MAX_INT8_ACCURACY_DROP
+    )
+    parser.add_argument(
+        "--min-agreement", type=float, default=MIN_FLOAT_INT8_AGREEMENT
+    )
+    parser.add_argument("--max-model-bytes", type=int, default=MAX_TFLITE_SIZE_BYTES)
+    parser.add_argument("--min-macro-f1", type=float, default=MIN_INT8_MACRO_F1)
+    parser.add_argument(
+        "--min-class-recall", type=float, default=MIN_INT8_CLASS_RECALL
+    )
     parser.add_argument("--seed", type=int, default=42)
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    out_dir = Path(args.out)
+    if args.batch_size < 1 or args.max_accuracy_drop < 0:
+        raise ValueError("batch-size must be positive and max-accuracy-drop non-negative")
+    for argument_name in ("min_agreement", "min_macro_f1", "min_class_recall"):
+        value = getattr(args, argument_name)
+        if not 0.0 <= value <= 1.0:
+            raise ValueError(f"{argument_name.replace('_', '-')} must be between 0 and 1")
+
+    float_path = resolve_input_path(args.float_model)
+    int8_path = resolve_input_path(args.int8_model)
+    metadata_path = resolve_input_path(args.metadata)
+    data_path = resolve_input_path(args.data)
+    out_dir = resolve_output_path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    known_samples, other_samples = load_eval_samples(args.data, args.seed)
-    x_known, y_known, skipped_known = load_images(known_samples, args.image_size)
-    if other_samples:
-        x_other, y_other, skipped_other = load_images(other_samples, args.image_size)
-        y_other = np.full_like(y_other, OTHER_LABEL)
-    else:
-        x_other = np.empty((0, args.image_size, args.image_size, 3), dtype=np.float32)
-        y_other = np.empty((0,), dtype=np.int64)
-        skipped_other = []
-
-    predictor = load_predictor(args.model)
-    known_logits, known_embeddings = predictor.predict(x_known)
-    other_logits, other_embeddings = predictor.predict(x_other) if len(x_other) else (
-        np.empty((0, 2), dtype=np.float32),
-        np.empty((0, 32), dtype=np.float32),
+    metadata = read_json(metadata_path)
+    validate_metadata_contract(metadata)
+    verify_artifact_hash(metadata, "float_model", float_path)
+    verify_artifact_hash(metadata, "int8_model", int8_path)
+    tflite_inspection = inspect_tflite_model(
+        int8_path, max_model_bytes=args.max_model_bytes
     )
+    _validate_quantization_metadata(metadata, tflite_inspection)
 
-    thresholds = load_json(args.thresholds) if Path(args.thresholds).is_file() else None
-    centroids = load_centroids(args.centroids) if Path(args.centroids).is_file() else None
-
-    plain_metrics = evaluate_plain_known(known_logits, y_known)
-    rejection_metrics = evaluate_with_rejection(
-        y_known,
-        known_logits,
-        known_embeddings,
-        y_other,
-        other_logits,
-        other_embeddings,
-        thresholds,
-        centroids,
-    )
-
-    metrics = {
-        "model": str(args.model),
-        "model_type": predictor.kind,
-        "known_samples": len(known_samples),
-        "other_samples": len(other_samples),
-        "skipped_images": skipped_known + skipped_other,
-        "plain_known": plain_metrics,
-        "with_rejection": rejection_metrics,
-    }
-
-    suffix = "int8" if predictor.kind == "tflite" else "float_eval"
-    metrics_path = out_dir / f"metrics_{suffix}.json"
-    metrics_path.write_text(
-        json.dumps(metrics, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
-    if predictor.kind == "tflite":
-        write_confusion_csv(
-            out_dir / "confusion_matrix_int8.csv",
-            rejection_metrics["confusion_matrix"],
+    index = load_dataset_index(data_path)
+    expected_dataset_hash = metadata.get("dataset", {}).get("dataset_sha256")
+    if expected_dataset_hash != index.dataset_sha256:
+        raise ValueError(
+            "Evaluation dataset differs from training metadata: "
+            f"metadata={expected_dataset_hash}, current={index.dataset_sha256}"
         )
-        update_aggregate_metrics(out_dir / "metrics.json", "int8", metrics)
+    test_samples = index.for_split("test")
+    test_dataset = make_dataset(
+        test_samples,
+        batch_size=args.batch_size,
+        training=False,
+        seed=args.seed,
+    )
+    truth = np.asarray([sample.label_id for sample in test_samples], dtype=np.int64)
 
-    print(json.dumps(metrics, indent=2, ensure_ascii=False))
-    print(f"Saved metrics: {metrics_path}")
+    float_predictor = KerasPredictor(float_path)
+    int8_predictor = TFLitePredictor(int8_path)
+    float_logits = float_predictor.predict_dataset(test_dataset)
+    int8_logits = int8_predictor.predict_dataset(test_dataset)
+    float_metrics = classification_metrics(truth, float_logits)
+    int8_metrics = classification_metrics(truth, int8_logits)
+
+    float_predictions = np.argmax(float_logits, axis=1)
+    int8_predictions = np.argmax(int8_logits, axis=1)
+    accuracy_drop = float(float_metrics["accuracy"] - int8_metrics["accuracy"])
+    agreement = float(np.mean(float_predictions == int8_predictions))
+    int8_min_class_recall = min(
+        float(int8_metrics["per_class"][label]["recall"]) for label in LABELS
+    )
+    comparison = {
+        "samples": len(test_samples),
+        "float_int8_class_agreement": agreement,
+        "accuracy_drop": accuracy_drop,
+        "max_accuracy_drop": args.max_accuracy_drop,
+        "min_agreement": args.min_agreement,
+        "min_macro_f1": args.min_macro_f1,
+        "min_class_recall": args.min_class_recall,
+        "int8_macro_f1": float(int8_metrics["macro_f1"]),
+        "int8_min_class_recall": int8_min_class_recall,
+        "gates": {
+            "accuracy_drop_passed": accuracy_drop <= args.max_accuracy_drop,
+            "agreement_passed": agreement >= args.min_agreement,
+            "model_size_passed": int8_path.stat().st_size <= args.max_model_bytes,
+            "macro_f1_passed": int8_metrics["macro_f1"] >= args.min_macro_f1,
+            "class_recall_passed": int8_min_class_recall >= args.min_class_recall,
+        },
+    }
+    comparison["passed"] = all(comparison["gates"].values())
+
+    float_payload = {
+        "model": str(float_path),
+        "sha256": sha256_file(float_path),
+        "dataset_sha256": index.dataset_sha256,
+        "split": "test",
+        "metrics": float_metrics,
+    }
+    int8_payload = {
+        "model": str(int8_path),
+        "sha256": sha256_file(int8_path),
+        "dataset_sha256": index.dataset_sha256,
+        "split": "test",
+        "inspection": tflite_inspection,
+        "metrics": int8_metrics,
+    }
+    write_json_atomic(out_dir / "metrics_float.json", float_payload)
+    write_json_atomic(out_dir / "metrics_int8.json", int8_payload)
+    write_json_atomic(out_dir / "comparison.json", comparison)
+    _write_confusion_csv(
+        out_dir / "confusion_matrix_int8.csv",
+        int8_metrics["confusion_matrix"],
+    )
+
+    print(json.dumps({"float": float_payload, "int8": int8_payload, "comparison": comparison}, indent=2, ensure_ascii=False))
+    if not comparison["passed"]:
+        failed = [name for name, passed in comparison["gates"].items() if not passed]
+        raise RuntimeError(f"INT8 deployment gates failed: {failed}")
 
 
 class KerasPredictor:
-    kind = "keras"
-
-    def __init__(self, model_path: str) -> None:
+    def __init__(self, model_path: str | Path) -> None:
         self.model = tf.keras.models.load_model(model_path, compile=False)
+        validate_model_contract(self.model)
 
-    def predict(self, x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        if len(x) == 0:
-            return np.empty((0, 2), dtype=np.float32), np.empty((0, 32), dtype=np.float32)
-        outputs = self.model.predict(x, batch_size=32, verbose=0)
-        if isinstance(outputs, (list, tuple)):
-            return identify_outputs(outputs)
-        embedding_model = tf.keras.Model(
-            inputs=self.model.input,
-            outputs=self.model.get_layer("embedding").output,
+    def predict_dataset(self, dataset: tf.data.Dataset) -> np.ndarray:
+        images = dataset.map(
+            lambda image, _label: image,
+            num_parallel_calls=tf.data.AUTOTUNE,
+            deterministic=True,
         )
-        embeddings = embedding_model.predict(x, batch_size=32, verbose=0)
-        return np.asarray(outputs), np.asarray(embeddings)
+        return np.asarray(self.model.predict(images, verbose=0), dtype=np.float32)
+
+    def predict_one(self, image: np.ndarray) -> np.ndarray:
+        batch = np.asarray(image, dtype=np.float32)[np.newaxis, ...]
+        return np.asarray(self.model.predict(batch, verbose=0), dtype=np.float32)[0]
 
 
 class TFLitePredictor:
-    kind = "tflite"
-
-    def __init__(self, model_path: str) -> None:
-        self.interpreter = tf.lite.Interpreter(model_path=model_path)
+    def __init__(self, model_path: str | Path) -> None:
+        self.interpreter = tf.lite.Interpreter(model_path=str(model_path))
         self.interpreter.allocate_tensors()
-        self.input_detail = self.interpreter.get_input_details()[0]
-        self.output_details = self.interpreter.get_output_details()
+        inputs = self.interpreter.get_input_details()
+        outputs = self.interpreter.get_output_details()
+        if len(inputs) != 1 or len(outputs) != 1:
+            raise ValueError("TFLite model must have one input and one output")
+        self.input_detail = inputs[0]
+        self.output_detail = outputs[0]
+        expected_input = [1, IMAGE_SIZE, IMAGE_SIZE, IMAGE_CHANNELS]
+        expected_output = [1, len(LABELS)]
+        if self.input_detail["shape"].tolist() != expected_input:
+            raise ValueError("TFLite input shape does not match the preprocessing contract")
+        if self.output_detail["shape"].tolist() != expected_output:
+            raise ValueError("TFLite output is not a three-logit tensor")
+        if self.input_detail["dtype"] != np.int8 or self.output_detail["dtype"] != np.int8:
+            raise ValueError("TFLite predictor requires int8 input and output")
 
-    def predict(self, x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        logits_rows: list[np.ndarray] = []
-        embedding_rows: list[np.ndarray] = []
-        for image in x:
-            quantized = self.quantize_input(image[np.newaxis, ...])
-            self.interpreter.set_tensor(self.input_detail["index"], quantized)
-            self.interpreter.invoke()
-            outputs = [
-                self.dequantize_output(detail, self.interpreter.get_tensor(detail["index"]))
-                for detail in self.output_details
-            ]
-            logits, embedding = identify_outputs(outputs)
-            logits_rows.append(logits[0])
-            embedding_rows.append(embedding[0])
-        if not logits_rows:
-            return np.empty((0, 2), dtype=np.float32), np.empty((0, 32), dtype=np.float32)
-        return np.vstack(logits_rows), np.vstack(embedding_rows)
+    def predict_dataset(self, dataset: tf.data.Dataset) -> np.ndarray:
+        rows: list[np.ndarray] = []
+        for images, _labels in dataset:
+            for image in images.numpy():
+                rows.append(self.predict_one(image))
+        if not rows:
+            raise ValueError("Cannot predict an empty dataset")
+        return np.vstack(rows).astype(np.float32, copy=False)
 
-    def quantize_input(self, image: np.ndarray) -> np.ndarray:
+    def predict_one(self, image: np.ndarray) -> np.ndarray:
+        quantized = self._quantize(image)
+        self.interpreter.set_tensor(
+            self.input_detail["index"], quantized[np.newaxis, ...]
+        )
+        self.interpreter.invoke()
+        output = self.interpreter.get_tensor(self.output_detail["index"])[0]
+        scale, zero_point = self.output_detail["quantization"]
+        if scale <= 0:
+            raise ValueError("TFLite output has invalid quantization scale")
+        return (output.astype(np.float32) - zero_point) * scale
+
+    def _quantize(self, image: np.ndarray) -> np.ndarray:
         scale, zero_point = self.input_detail["quantization"]
-        dtype = self.input_detail["dtype"]
-        if scale == 0:
-            return image.astype(dtype)
-        values = np.round(image / scale + zero_point)
-        info = np.iinfo(dtype)
-        return np.clip(values, info.min, info.max).astype(dtype)
-
-    @staticmethod
-    def dequantize_output(detail: dict, values: np.ndarray) -> np.ndarray:
-        scale, zero_point = detail["quantization"]
-        if scale == 0:
-            return values.astype(np.float32)
-        return (values.astype(np.float32) - zero_point) * scale
+        if scale <= 0:
+            raise ValueError("TFLite input has invalid quantization scale")
+        values = np.rint(np.asarray(image, dtype=np.float32) / scale + zero_point)
+        return np.clip(values, -128, 127).astype(np.int8)
 
 
-def load_predictor(model_path: str):
-    return TFLitePredictor(model_path) if model_path.endswith(".tflite") else KerasPredictor(model_path)
+def load_predictor(model_path: str | Path):
+    path = Path(model_path)
+    return TFLitePredictor(path) if path.suffix.lower() == ".tflite" else KerasPredictor(path)
 
 
-def load_eval_samples(data: str, seed: int):
-    path = Path(data)
-    try:
-        splits = load_dataset_splits(path, seed=seed)
-        return splits.test_known, splits.test_other
-    except Exception:
-        known = samples_from_class_dirs(
-            path, split="test", include_known=True, include_other=False
-        )
-        other = samples_from_class_dirs(
-            path, split="test", include_known=False, include_other=True
-        )
-        return known, other
+def _validate_quantization_metadata(
+    metadata: dict, inspection: dict
+) -> None:
+    for tensor_name in ("input", "output"):
+        stored = metadata.get(tensor_name, {}).get("quantization")
+        actual = inspection[tensor_name]["quantization"]
+        if not stored:
+            raise ValueError(f"Metadata is missing {tensor_name} quantization")
+        if int(stored.get("zero_point")) != int(actual["zero_point"]):
+            raise ValueError(f"Metadata {tensor_name} zero_point does not match model")
+        if not np.isclose(
+            float(stored.get("scale")),
+            float(actual["scale"]),
+            rtol=1e-7,
+            atol=1e-9,
+        ):
+            raise ValueError(f"Metadata {tensor_name} scale does not match model")
+    if metadata.get("tflite", {}).get("operators") != inspection["operators"]:
+        raise ValueError("Metadata operator list does not match the INT8 model")
 
 
-def identify_outputs(outputs: list[np.ndarray] | tuple[np.ndarray, ...]) -> tuple[np.ndarray, np.ndarray]:
-    logits = None
-    embeddings = None
-    for output in outputs:
-        array = np.asarray(output)
-        if array.shape[-1] == 2:
-            logits = array
-        elif array.shape[-1] == 32:
-            embeddings = array
-    if logits is None or embeddings is None:
-        raise RuntimeError("Model must expose logits(2) and embedding(32)")
-    return logits, embeddings
-
-
-def evaluate_plain_known(logits: np.ndarray, y_true: np.ndarray) -> dict:
-    y_pred = np.argmax(logits, axis=1)
-    labels = sorted(ID_TO_LABEL)
-    target_names = [ID_TO_LABEL[index] for index in labels]
-    report = classification_report(
-        y_true,
-        y_pred,
-        labels=labels,
-        target_names=target_names,
-        output_dict=True,
-        zero_division=0,
-    )
-    return {
-        "accuracy": float(accuracy_score(y_true, y_pred)),
-        "macro_f1": float(
-            f1_score(y_true, y_pred, labels=labels, average="macro", zero_division=0)
-        ),
-        "recall_paper": float(report["paper"]["recall"]),
-        "recall_plastic": float(report["plastic"]["recall"]),
-        "classification_report": report,
-        "confusion_matrix": confusion_matrix(y_true, y_pred, labels=labels).tolist(),
-    }
-
-
-def evaluate_with_rejection(
-    y_known: np.ndarray,
-    known_logits: np.ndarray,
-    known_embeddings: np.ndarray,
-    y_other: np.ndarray,
-    other_logits: np.ndarray,
-    other_embeddings: np.ndarray,
-    thresholds: dict | None,
-    centroids: dict[int, np.ndarray] | None,
-) -> dict:
-    known_pred = reject_predictions(known_logits, known_embeddings, thresholds, centroids)
-    other_pred = reject_predictions(other_logits, other_embeddings, thresholds, centroids)
-
-    y_true = np.concatenate([y_known, y_other])
-    y_pred = np.concatenate([known_pred, other_pred])
-    labels = [0, 1, 2]
-    names = [THREE_WAY_LABELS[index] for index in labels]
-    report = classification_report(
-        y_true,
-        y_pred,
-        labels=labels,
-        target_names=names,
-        output_dict=True,
-        zero_division=0,
-    )
-    other_false_accept = float(np.mean(other_pred != OTHER_LABEL)) if len(other_pred) else 0.0
-    return {
-        "accuracy": float(accuracy_score(y_true, y_pred)) if len(y_true) else 0.0,
-        "macro_f1": float(
-            f1_score(y_true, y_pred, labels=labels, average="macro", zero_division=0)
-        )
-        if len(y_true)
-        else 0.0,
-        "paper_recall": float(report["paper"]["recall"]),
-        "plastic_recall": float(report["plastic"]["recall"]),
-        "other_false_accept_rate": other_false_accept,
-        "known_reject_rate": float(np.mean(known_pred == OTHER_LABEL)) if len(known_pred) else 0.0,
-        "classification_report": report,
-        "confusion_matrix": confusion_matrix(y_true, y_pred, labels=labels).tolist(),
-    }
-
-
-def reject_predictions(
-    logits: np.ndarray,
-    embeddings: np.ndarray,
-    thresholds: dict | None,
-    centroids: dict[int, np.ndarray] | None,
-) -> np.ndarray:
-    if len(logits) == 0:
-        return np.empty((0,), dtype=np.int64)
-    probabilities = softmax(logits)
-    predicted = np.argmax(probabilities, axis=1).astype(np.int64)
-    if thresholds is None:
-        return predicted
-
-    confidence = np.max(probabilities, axis=1)
-    sorted_prob = np.sort(probabilities, axis=1)
-    margin = sorted_prob[:, -1] - sorted_prob[:, -2]
-    accepted = (
-        (confidence >= float(thresholds["confidence_min"]))
-        & (margin >= float(thresholds["margin_min"]))
-    )
-
-    if thresholds.get("use_embedding_distance", False) and centroids is not None:
-        distances = np.asarray(
-            [
-                np.linalg.norm(embeddings[index] - centroids[int(predicted[index])])
-                for index in range(len(predicted))
-            ]
-        )
-        distance_limit = np.where(
-            predicted == 0,
-            float(thresholds["paper_distance_max"]),
-            float(thresholds["plastic_distance_max"]),
-        )
-        accepted &= distances <= distance_limit
-
-    return np.where(accepted, predicted, OTHER_LABEL).astype(np.int64)
-
-
-def softmax(logits: np.ndarray) -> np.ndarray:
-    logits = np.asarray(logits, dtype=np.float32)
-    logits = logits - np.max(logits, axis=1, keepdims=True)
-    exp = np.exp(logits)
-    return exp / np.sum(exp, axis=1, keepdims=True)
-
-
-def load_json(path: str) -> dict:
-    return json.loads(Path(path).read_text(encoding="utf-8"))
-
-
-def load_centroids(path: str) -> dict[int, np.ndarray]:
-    payload = load_json(path)
-    return {
-        0: np.asarray(payload["paper"], dtype=np.float32),
-        1: np.asarray(payload["plastic"], dtype=np.float32),
-    }
-
-
-def write_confusion_csv(path: Path, matrix: list[list[int]]) -> None:
-    labels = ["actual/predicted", "paper", "plastic", "other"]
-    with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.writer(handle)
-        writer.writerow(labels)
-        for index, row in enumerate(matrix):
-            writer.writerow([THREE_WAY_LABELS[index], *row])
-
-
-def update_aggregate_metrics(path: Path, key: str, payload: dict) -> None:
-    aggregate = {}
-    if path.is_file():
-        aggregate = json.loads(path.read_text(encoding="utf-8"))
-    aggregate[key] = payload
-    path.write_text(json.dumps(aggregate, indent=2, ensure_ascii=False), encoding="utf-8")
+def _write_confusion_csv(path: Path, matrix: list[list[int]]) -> None:
+    rows = [["actual/predicted", *LABELS]]
+    rows.extend([[label, *matrix[index]] for index, label in enumerate(LABELS)])
+    content = "\n".join(
+        ",".join(str(value) for value in row) for row in rows
+    ) + "\n"
+    write_text_atomic(path, content)
 
 
 if __name__ == "__main__":

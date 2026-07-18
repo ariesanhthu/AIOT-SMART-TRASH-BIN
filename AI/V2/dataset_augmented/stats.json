@@ -1,0 +1,64 @@
+{
+  "source": "F:\\ANHTHU\\1-HCMUS\\1 - STUDY\\0-now\\AIOT\\PROJECT\\CODE\\AIOT-SMART-TRASH-BIN\\AI\\DATASET",
+  "output": "F:\\ANHTHU\\1-HCMUS\\1 - STUDY\\0-now\\AIOT\\PROJECT\\CODE\\AIOT-SMART-TRASH-BIN\\AI\\V2\\dataset_augmented",
+  "seed": 42,
+  "labels": [
+    "paper",
+    "plastic",
+    "organic"
+  ],
+  "internal_validation_ratio": 0.2,
+  "source_train_original_counts": {
+    "paper": 19,
+    "plastic": 20,
+    "organic": 22
+  },
+  "source_train_augmentation_counts": {
+    "paper": 171,
+    "plastic": 180,
+    "organic": 198
+  },
+  "source_external_validation_counts": {
+    "paper": 6,
+    "plastic": 5,
+    "organic": 5
+  },
+  "prepared_original_split_counts": {
+    "train": {
+      "paper": 15,
+      "plastic": 16,
+      "organic": 18
+    },
+    "validation": {
+      "paper": 6,
+      "plastic": 5,
+      "organic": 5
+    },
+    "test": {
+      "paper": 4,
+      "plastic": 4,
+      "organic": 4
+    }
+  },
+  "prepared_counts": {
+    "train": {
+      "paper": 150,
+      "plastic": 160,
+      "organic": 180
+    },
+    "validation": {
+      "paper": 6,
+      "plastic": 5,
+      "organic": 5
+    },
+    "test": {
+      "paper": 4,
+      "plastic": 4,
+      "organic": 4
+    }
+  },
+  "prepared_total": 518,
+  "leakage_control": "Augmented variants follow their source original into train; external validation and internal test contain originals only.",
+  "validation_semantics": "AI/DATASET/validation is used for checkpoint selection and contains all original validation samples.",
+  "test_semantics": "Internal holdout of AI/DATASET/train originals; their augmentations are excluded from training."
+}

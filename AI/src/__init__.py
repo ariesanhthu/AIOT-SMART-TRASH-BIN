@@ -1,1 +1,1 @@
-"""Lightweight paper/plastic image classifier."""
+"""Tiny, full-INT8-ready paper/plastic/organic image classifier."""

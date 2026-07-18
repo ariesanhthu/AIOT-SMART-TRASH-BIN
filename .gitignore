@@ -1,4 +1,6 @@
+# ==================================================
 # Editor directories and files
+# ==================================================
 .idea/
 .vscode/
 *.suo
@@ -6,8 +8,11 @@
 *.njsproj
 *.sln
 *.sw?
+*.code-workspace
 
-# OS generated files
+# ==================================================
+# OS-generated files
+# ==================================================
 .DS_Store
 .DS_Store?
 ._*
@@ -15,11 +20,211 @@
 .Trashes
 ehthumbs.db
 Thumbs.db
+desktop.ini
 
-# Environment variables
+# ==================================================
+# Environment variables and secrets
+# ==================================================
 .env
 .env.*
 !.env.example
 
-AI/trashnet/
+# Wi-Fi credentials / local configuration
+secrets.h
+credentials.h
+config.local.h
+*_credentials.h
+*_secrets.h
+
+# ==================================================
+# Python
+# ==================================================
 **/__pycache__/
+*.py[cod]
+*$py.class
+
+.venv/
+venv/
+env/
+ENV/
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+*.egg-info/
+build/
+dist/
+
+# Jupyter temporary files
+.ipynb_checkpoints/
+
+# ==================================================
+# AI datasets and downloaded archives
+# ==================================================
+AI/trashnet/
+AI/archive/
+AI/DATASET/
+AI/dataset/
+AI/data/
+AI/raw_data/
+AI/processed_data/
+
+# Training outputs
+AI/runs/
+AI/results/
+AI/checkpoints/
+AI/logs/
+AI/outputs/
+AI/**/artifacts/
+
+# Experiment tracking
+wandb/
+mlruns/
+lightning_logs/
+runs/
+
+# ==================================================
+# Large AI model files
+# Keep only files intentionally embedded in firmware
+# ==================================================
+*.h5
+*.keras
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.pb
+*.pkl
+*.joblib
+*.safetensors
+
+# Ignore generated TFLite models by default
+*.tflite
+
+# Uncomment and adjust if a final model must remain in Git
+# !firmware/src/model/model.tflite
+
+# ==================================================
+# Images, captures and uploaded files
+# ==================================================
+captures/
+capture/
+uploads/
+uploaded_images/
+snapshots/
+camera_images/
+test_images/
+temp_images/
+
+*.raw
+
+# ==================================================
+# Archives
+# ==================================================
+*.zip
+*.rar
+*.7z
+*.tar
+*.tar.gz
+*.gz
+
+# ==================================================
+# PlatformIO / ESP32 / Arduino
+# ==================================================
+.pio/
+.pioenvs/
+.piolibdeps/
+.platformio/
+
+libdeps/
+firmware/build/
+
+*.elf
+*.map
+*.hex
+*.bin
+
+# Arduino generated files
+*.ino.cpp
+*.ino.bin
+*.ino.elf
+*.ino.map
+
+# ==================================================
+# ESP-IDF
+# ==================================================
+sdkconfig
+sdkconfig.old
+managed_components/
+dependencies.lock
+
+# ==================================================
+# C / C++
+# ==================================================
+*.o
+*.obj
+*.a
+*.lib
+*.dll
+*.so
+*.dylib
+*.exe
+*.AppImage
+*.out
+
+# ==================================================
+# Node.js / Vite frontend
+# ==================================================
+node_modules/
+**/node_modules/
+
+dist/
+**/dist/
+
+.vite/
+.vite-cache/
+.cache/
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local package-manager state
+.pnpm-store/
+
+# ==================================================
+# Backend runtime data
+# ==================================================
+logs/
+*.log
+
+tmp/
+temp/
+.cache/
+
+database.db
+*.sqlite
+*.sqlite3
+
+# ==================================================
+# Testing and coverage
+# ==================================================
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+
+# ==================================================
+# Local development files
+# ==================================================
+*.local
+*.bak
+*.backup
+*.tmp
+*.temp
+
+arduino-ide_2.3.10_Windows_64bit.exe

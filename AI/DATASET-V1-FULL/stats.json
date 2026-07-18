@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "created_utc": "2026-07-13T19:58:03+00:00",
+  "seed": 42,
+  "labels": [
+    "paper",
+    "plastic",
+    "organic"
+  ],
+  "class_to_index": {
+    "paper": 0,
+    "plastic": 1,
+    "organic": 2
+  },
+  "counts": {
+    "train": {
+      "paper": 403,
+      "plastic": 347,
+      "organic": 347,
+      "total": 1097
+    },
+    "validation": {
+      "paper": 83,
+      "plastic": 61,
+      "organic": 61,
+      "total": 205
+    },
+    "test": {
+      "paper": 108,
+      "plastic": 74,
+      "organic": 74,
+      "total": 256
+    }
+  },
+  "total": 1558,
+  "dataset_sha256": "07bc39ff0013839d925087d063c07963c9063fcfbb8385899ed111d0b21928e9",
+  "canonical_format": {
+    "encoding": "JPEG",
+    "mode": "RGB",
+    "quality": 95,
+    "exif_orientation": "applied_and_removed",
+    "resize": "not_applied; performed by the model pipeline"
+  },
+  "sources": {
+    "trashnet_data": "AI/trashnet/data",
+    "trashnet_images": "AI/trashnet/data/dataset-resized/dataset-resized",
+    "organic_train": "AI/archive/DATASET/TRAIN/O",
+    "organic_test": "AI/archive/DATASET/TEST/O"
+  },
+  "organic_deduplication": {
+    "train_candidates": 12565,
+    "test_candidates": 1401,
+    "train_duplicates_removed": 30,
+    "test_duplicates_removed_after_cross_split_filter": 0,
+    "test_images_matching_train_removed": 285,
+    "key": "sha256(width || height || decoded_exif_corrected_rgb_bytes)"
+  }
+}

@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { DashboardPage } from './pages/DashboardPage';
 import { AlertsPage } from './pages/AlertsPage';
 import { StatisticsPage } from './pages/StatisticsPage';
 import { BinDetailPage } from './pages/BinDetailPage';
 import { ConfigPage } from './pages/ConfigPage';
+import { CameraPage } from './pages/CameraPage';
 import { ALERT_HISTORY, BINS } from './data';
 import './index.css';
 
@@ -12,7 +13,7 @@ function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
-  const [bins, setBins] = useState(BINS);
+  const [bins] = useState(BINS);
   const [alerts, setAlerts] = useState(ALERT_HISTORY);
 
   const pendingAlertCount = alerts.filter(a => a.status === 'pending').length;
@@ -25,7 +26,7 @@ function App() {
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard':
-        return <DashboardPage bins={bins} alerts={alerts} setPage={setCurrentPage} showToast={showToast} />;
+        return <DashboardPage bins={bins} alerts={alerts} setPage={setCurrentPage} />;
       case 'bindetail':
         return <BinDetailPage bins={bins} />;
       case 'statistics':
@@ -34,8 +35,10 @@ function App() {
         return <AlertsPage alerts={alerts} setAlerts={setAlerts} showToast={showToast} />;
       case 'config':
         return <ConfigPage showToast={showToast} />;
+      case 'camera':
+        return <CameraPage />;
       default:
-        return <DashboardPage bins={bins} alerts={alerts} setPage={setCurrentPage} showToast={showToast} />;
+        return <DashboardPage bins={bins} alerts={alerts} setPage={setCurrentPage} />;
     }
   };
 

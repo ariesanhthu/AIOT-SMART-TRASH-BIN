@@ -47,6 +47,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, setPage, isOpen, 
               <span>Thống kê</span>
             </a>
 
+            <a href="#" onClick={(e) => { e.preventDefault(); setPage('camera'); toggleSidebar(); }}
+               className={`sidebar-link ${currentPage === 'camera' ? 'active' : ''}`}>
+              <i className="nav-icon fa-solid fa-video"></i>
+              <span>Camera</span>
+            </a>
+
             <a href="#" onClick={(e) => { e.preventDefault(); setPage('alerts'); toggleSidebar(); }}
                className={`sidebar-link ${currentPage === 'alerts' ? 'active' : ''}`}>
               <i className="nav-icon fa-solid fa-bell"></i>
