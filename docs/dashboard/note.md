@@ -48,10 +48,9 @@ GET   /api/daily-stats?deviceId={id}&from={yyyy-mm-dd}&to={yyyy-mm-dd}
 - **[MỚI] Polling 3-5 giây đã thêm** cho `useBins`, `useDailyStats`, `useFullAlerts` — đạt yêu cầu cập nhật dashboard ≤ 5 giây.
 - **[MỚI] Alert lifecycle đã nối thật** — nút "Xử lý" gọi `PATCH .../resolve`, backend cập nhật `alert_status`, `resolved_at`, `resolved_by` trong Firestore; đã test xác nhận trạng thái giữ nguyên sau khi refresh.
 - **[MỚI] Firestore composite index đã tạo** cho `events` (`event_type` + `device_timestamp`) và `daily_stats` (`device_id` + `date`).
+- Dashboard KPI `Tổng lượt bỏ rác`, `Rác tái chế`, doughnut `Phân loại rác hôm nay` — **Xong**, xác nhận đã nối thật trong lần cập nhật này doughnut và 2 kpi đã show data.
 
 ## Phần còn mock/chưa nối thật
-
-- Dashboard KPI `Tổng lượt bỏ rác`, `Rác tái chế`, doughnut `Phân loại rác hôm nay` — **cần kiểm tra lại**, chưa xác nhận đã nối thật trong lần cập nhật này.
 - Bảng điểm thưởng `REWARDS` vẫn là mock, chưa có backend/schema trong prototype hiện tại.
 
 ## Điểm cần chú ý khi merge với team (cập nhật)

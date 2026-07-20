@@ -75,5 +75,5 @@ So với đánh giá lần trước, các rủi ro chính đã được giải q
 2. Nối ConfigPage vào API — **Xong.**
 3. Thêm Firestore index cho daily_stats — **Xong**, đồng thời phát hiện và fix thêm index cho `events`.
 4. **Chốt với leader** đơn vị threshold (ratio vs %) và tên field `alert_threshold` — đã đề xuất hướng ở mục 5.1/5.2, chờ xác nhận.
-5. Kiểm tra lại Dashboard KPI/reward có còn mock không (mục 5.3).
-6. Nếu leader OK, cập nhật `firestore.indexes.json` bằng cách export từ Firebase Console để đồng bộ với team (tránh member khác pull code về bị thiếu index do tạo thủ công qua Console không được commit).
+5. Kiểm tra lại Dashboard KPI/reward có còn mock không (mục 5.3) - **Xong**.
+6. Nếu leader OK, cập nhật `firestore.indexes.json` bằng cách export từ Firebase Console để đồng bộ với team (tránh member khác pull code về bị thiếu index do tạo thủ công qua Console không được commit) **Xong**.
