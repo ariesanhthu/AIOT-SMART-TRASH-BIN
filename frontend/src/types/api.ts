@@ -14,6 +14,7 @@ export interface DeviceResponseDto {
   maintenanceMode: boolean;
   firmwareVersion: string | null;
   aiModelVersion: string | null;
+  className: string | null;
   compartments: Partial<Record<WasteTypeKey, CompartmentDto>>;
 }
 
@@ -53,6 +54,7 @@ export interface Bin {
   id: string;
   name: string;
   location: string;
+  className: string | null; 
   online: boolean;
   maintenanceMode: boolean;
   compartments: Partial<Record<WasteTypeKey, number>>;
@@ -96,5 +98,10 @@ export interface DailyStatSummaryDto {
   paperCount: number;
   plasticCount: number;
   recyclableCount: number;
+  totalCount: number;
+}
+
+export interface DeviceRankDto {
+  deviceId: string;
   totalCount: number;
 }

@@ -18,6 +18,7 @@ export function deviceResponseToBin(dto: DeviceResponseDto): Bin {
     id: dto.deviceId,
     name: dto.name ?? dto.deviceId,
     location: dto.location ?? '',
+    className: dto.className ?? null,
     maintenanceMode: dto.maintenanceMode,
     // "online" không có field riêng ở backend hiện tại — suy ra tạm từ lastSeenAt
     // (vd: coi là online nếu lastSeenAt trong vòng 5 phút gần nhất).

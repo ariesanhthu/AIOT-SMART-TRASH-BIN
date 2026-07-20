@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { REWARDS } from '../mockData'; // giữ nguyên — tích điểm thưởng nằm ngoài phạm vi backend hiện tại
+import { useRanking } from '../hooks/useRanking'; // giữ nguyên — tích điểm thưởng nằm ngoài phạm vi backend hiện tại
 import type { Bin, AlertRow } from '../types/api';
 import { WASTE_TYPES } from '../constants/wasteTypes';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
@@ -21,6 +21,7 @@ export const DashboardPage: React.FC<Props> = ({ bins, alerts, setPage }) => {
   const dashBins = bins.slice(0, 4);
   const pendingAlerts = useMemo(() => alerts.filter(a => a.status === 'pending').slice(0, 3), [alerts]);
   const { summary } = useTodaySummary();
+  const ranking = useRanking(bins, 7);  
 
   const chartData = {
     labels: ['Hữu cơ', 'Giấy', 'Nhựa'],
@@ -189,7 +190,7 @@ export const DashboardPage: React.FC<Props> = ({ bins, alerts, setPage }) => {
             </div>
             <div className="card card-padding">
               <div className="space-y-4">
-                {REWARDS.map((r, i) => (
+                {ranking.map((r, i) => (
                   <div key={i} className="flex items-center gap-3">
                     <span style={{ fontSize: '18px', minWidth: '24px', textAlign: 'center' }}>{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : ''}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
