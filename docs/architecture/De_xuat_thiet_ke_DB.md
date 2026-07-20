@@ -80,6 +80,7 @@ devices/{deviceId}
   ├─ maintenance_mode: boolean
   ├─ firmware_version: string
   ├─ ai_model_version: string
+  ├─ class_name: string 
   └─ compartments: {
         organic: {
           threshold: number,          // mặc định 0.8
