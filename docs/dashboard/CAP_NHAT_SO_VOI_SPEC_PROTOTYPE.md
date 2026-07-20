@@ -1,135 +1,79 @@
 # Cập nhật thực hiện so với spec và đánh giá đánh đổi prototype
 
-Tài liệu này tổng hợp nhanh việc frontend/backend hiện đã merge đúng tới đâu so với tài liệu đặc tả và các tài liệu kiến trúc DB. Phạm vi đánh giá tập trung vào dashboard, thông báo, thống kê, cấu hình thiết bị và luồng ghi dữ liệu xuống DB.
+> Cập nhật lần 2 (20/07/2026) — sau khi nối ConfigPage, thêm polling, alert lifecycle, Firestore index.
 
 ## 1. Kết luận ngắn
 
-Hướng hiện tại không sai hướng đồ án. Kiến trúc Dashboard -> Backend -> Firestore và ESP32 -> Firestore trực tiếp phù hợp prototype, giảm công viết ingestion API và vẫn bám được yêu cầu cốt lõi: lưu event, hiển trạng thái thùng, thống kê theo ngày, cảnh báo đầy, cấu hình ngưỡng.
+Hướng hiện tại không sai hướng đồ án. Kiến trúc Dashboard -> Backend -> Firestore và ESP32 -> Firestore trực tiếp phù hợp prototype.
 
-Tuy nhiên, nếu nói là "đã đạt đầy đủ spec" thì chưa đúng. Bản hiện tại nên được ghi là prototype có core data flow, nhưng còn thiếu realtime/polling <= 5 giây, UI cấu hình chưa nối API thật, alert lifecycle chưa có backend, và một số màn hình dashboard vẫn còn mock.
+**[CẬP NHẬT]** So với lần audit trước, bản hiện tại đã tiến thêm một bước quan trọng: **polling <= 5 giây, ConfigPage nối API thật, alert lifecycle có backend thật** đều đã hoàn thành và test xác nhận hoạt động đúng. Phần còn thiếu chỉ còn ở mức "cần leader quyết định hướng" (đơn vị threshold, tên field) chứ không còn là nợ kỹ thuật (technical debt) nữa.
 
-## 2. Đối chiếu theo nhóm yêu cầu
+## 2. Đối chiếu theo nhóm yêu cầu (cập nhật)
 
 | Nhóm yêu cầu | Spec mong muốn | Hiện trạng code | Đánh giá |
 |---|---|---|---|
-| Dashboard xem trạng thái thùng | Hiện mức đầy từng ngăn, trạng thái online/offline, last update | `GET /api/devices` đã có; frontend mapping ra `Bin`; online suy ra từ `lastSeenAt` | Đạt phần dữ liệu cốt lõi |
-| Cập nhật dashboard <= 5 giây | Dashboard nhận dữ liệu mới trong <= 5 giây | Hook frontend fetch 1 lần, chưa polling/listener | Chưa đạt, cần thêm polling 3-5 giây hoặc realtime listener |
+| Dashboard xem trạng thái thùng | Hiện mức đầy từng ngăn, trạng thái online/offline, last update | `GET /api/devices` đã có; frontend mapping ra `Bin`; online suy ra từ `lastSeenAt` | Đạt |
+| Cập nhật dashboard <= 5 giây | Dashboard nhận dữ liệu mới trong <= 5 giây | **[XONG]** Đã thêm polling 3-5 giây cho `useBins`, `useDailyStats`, `useFullAlerts` | **Đạt** |
 | Ghi event phân loại | Lưu loại rác, thùng, thời gian, confidence, compartment | ESP32 schema + backend read event + Cloud Function đã có | Đạt về schema/backend; cần firmware gửi đúng payload |
-| Thống kê theo ngày | Tổng hợp organic/paper/plastic theo ngày | Cloud Function increment `daily_stats`; backend/FE đọc daily stats | Đạt core; thiếu index `daily_stats` trong config |
-| Thống kê theo tháng | Có thống kê theo tháng | Chưa có `monthly_stats`; có thể cộng từ `daily_stats` | Chấp nhận được cho prototype 30 ngày |
-| Cảnh báo đầy | Hiện `FULL_ALERT` khi vượt ngưỡng | Event `FULL_ALERT`, FE đọc alert; Function set status full | Đạt phần hiển thị; chưa có lifecycle active/resolved backend |
-| Xử lý cảnh báo | Theo dõi cảnh báo đã xử lý/chưa xử lý | FE chỉ mark local state | Chưa đạt nếu spec yêu cầu lưu trạng thái xử lý thật |
-| Cấu hình ngưỡng đầy | Admin đổi threshold từng ngăn từ dashboard | Backend `PATCH /config` và FE service đã có; `ConfigPage` chưa gọi API | Backend đạt, UI chưa merge thật |
-| Bảo trì từ xa | Bật/tắt `maintenance_mode` | Backend support field; UI chưa nối thật | Một phần |
-| Cập nhật model AI từ xa | Optional/nên có, quản lý version model | Chỉ lưu `ai_model_version`; UI model là mock | Chấp nhận prototype nếu team chốt nạp model thủ công |
-| Bảo mật dashboard | Admin/user xác thực trước khi gọi API | FE lấy Firebase ID Token; backend có filter auth | Đúng hướng |
+| Thống kê theo ngày | Tổng hợp organic/paper/plastic theo ngày | Cloud Function increment `daily_stats`; **[XONG]** đã thêm composite index | **Đạt** |
+| Thống kê theo tháng | Có thống kê theo tháng | Chưa có `monthly_stats` | Chấp nhận được cho prototype 30 ngày |
+| Cảnh báo đầy | Hiện `FULL_ALERT` khi vượt ngưỡng | Event `FULL_ALERT`, FE đọc alert; Function set status full | Đạt |
+| Xử lý cảnh báo | Theo dõi cảnh báo đã xử lý/chưa xử lý | **[XONG]** Endpoint `PATCH .../resolve` lưu `alert_status`, `resolved_at`, `resolved_by` xuống Firestore thật, đã test xác nhận giữ trạng thái sau refresh | **Đạt** |
+| Cấu hình ngưỡng đầy | Admin đổi threshold từng ngăn từ dashboard | **[XONG]** `ConfigPage` đã gọi `PATCH /config` thật | **Đạt** |
+| Bảo trì từ xa | Bật/tắt `maintenance_mode` | Backend support field; **[CẦN KIỂM TRA]** UI đã nối cùng lúc với ConfigPage, cần xác nhận riêng | Có khả năng đã đạt, cần test lại |
+| Cập nhật model AI từ xa | Optional/nên có | Chỉ lưu `ai_model_version`; UI model là mock | Chấp nhận prototype |
+| Bảo mật dashboard | Admin/user xác thực trước khi gọi API | FE lấy Firebase ID Token; backend có filter auth; **[FIX]** đã sửa filter chặn nhầm CORS preflight | Đúng hướng, đã ổn định |
 | Bảo mật ESP32 | Không nhúng Admin key vào firmware | Backend cấp custom token, Security Rules giới hạn `device_id` | Đúng hướng prototype |
-| Mất mạng và sync lại | Queue local 150 event/24h, sync theo timestamp | DB có `device_timestamp`, `synced_late`; firmware chưa được đánh giá trong phạm vi này | DB hỗ trợ, firmware cần implement |
-| Lưu dữ liệu tối thiểu 30 ngày | Giữ event/stat tối thiểu 30 ngày | Schema có timestamp/date; chưa có TTL/cleanup | Chấp nhận prototype, cần policy vận hành sau |
+| Mất mạng và sync lại | Queue local, sync theo timestamp | DB hỗ trợ, firmware chưa đánh giá | DB hỗ trợ, firmware cần implement |
+| Lưu dữ liệu tối thiểu 30 ngày | Giữ event/stat tối thiểu 30 ngày | Schema có timestamp/date; chưa có TTL/cleanup | Chấp nhận prototype |
 
-## 3. Những gì đã làm được
+## 3. Những gì mới hoàn thành trong lần cập nhật này
 
-- Backend Spring Boot có API đọc thiết bị, đọc event, đọc daily stats, update config và cấp custom token cho ESP32.
-- Frontend đã có `apiClient` tự động gắn Firebase ID Token của user vào request.
-- Frontend type DTO (`DeviceResponseDto`, `EventResponseDto`, `DailyStatDto`) khớp với backend response camelCase.
-- Mapper frontend đã chuyển device response thành model `Bin` để hiển dashboard/bin detail.
-- `StatisticsPage` đã đọc daily stats thật theo `deviceId`, `from`, `to`.
-- `BinDetailPage` đã đọc lịch sử `CLASSIFY` thật.
-- `AlertsPage` và dashboard alert summary đã đọc `FULL_ALERT` thật.
-- Firestore Rules đã thể hiện rõ ranh giới: device chỉ ghi path của mình, không sửa threshold/maintenance mode.
-- Cloud Function đã thay backend làm side effect: increment daily stats và cập nhật status full.
+- **ConfigPage** gọi API thật (`PATCH /api/devices/{id}/config`), không còn mock `THRESHOLDS`.
+- **Polling 3-5 giây** cho `useBins`, `useDailyStats`, `useFullAlerts` — đạt yêu cầu dashboard cập nhật <= 5 giây.
+- **Alert lifecycle thật**: endpoint `PATCH /api/devices/{id}/events/{eventId}/resolve`, backend cập nhật `alert_status`/`resolved_at`/`resolved_by`, đã test xác nhận lưu Firestore thật (không còn chỉ local state).
+- **Firestore composite index** đã tạo cho cả `events (event_type, device_timestamp)` và `daily_stats (device_id, date)` — cả hai đều từng gây lỗi 500 khi query thật, giờ đã hoạt động ổn định.
+- Sửa 2 bug kỹ thuật phát sinh trong quá trình tích hợp (không nằm trong spec nhưng đáng ghi lại cho team):
+  - Lombok `@Data` không copy annotation `@PropertyName` sang getter/setter tự sinh → phải viết tay getter/setter cho `Device`, `Compartment`, `EventData`, `DailyStat`.
+  - `firebase-admin:9.4.3` không tương thích với protobuf/gRPC version mà Spring Boot 4 BOM kéo về → nâng lên `9.10.0` để fix lỗi verify JWT signature.
 
-## 4. Những gì bỏ qua/cố ý defer vì prototype
+## 4. Những gì vẫn cố ý defer (không đổi so với lần trước)
 
-| Phần bỏ qua/defer | Lý do prototype | Có sai hướng không? | Khi nào cần làm |
-|---|---|---|---|
-| `monthly_stats` precompute | Quy mô 30 ngày/ít thiết bị, có thể cộng từ daily stats | Không sai | Khi query tháng chậm hoặc số device tăng |
-| Alert entity riêng với active/resolved/acknowledged | Demo có thể hiện FULL_ALERT từ event log | Không sai nếu nói rõ "xử lý local" | Khi cần lưu trạng thái xử lý thật |
-| Upload/deploy model AI từ dashboard | Spec xem là optional/nên có; prototype có thể nạp model thủ công | Không sai nếu team chốt phạm vi | Khi cần OTA model, rollback, changelog |
-| Push config realtime <= 7 giây | Pull heartbeat/piggyback đơn giản hơn MQTT | Có đánh đổi với NFREQ.19 | Khi muốn giữ đúng <= 7 giây trong mọi tình huống |
-| TTL/cron xóa data cũ | Dữ liệu demo nhỏ, chưa tốn chi phí | Không sai | Khi chạy lâu ngày hoặc cần policy retention nghiêm |
-| Reward/student points backend | Ngoài core dashboard thùng rác hiện tại | Không sai nếu ghi là mock | Khi spec demo cần gamification thật |
+| Phần bỏ qua/defer | Lý do prototype | Khi nào cần làm |
+|---|---|---|
+| `monthly_stats` precompute | Có thể cộng từ daily stats | Khi query tháng chậm hoặc số device tăng |
+| Upload/deploy model AI từ dashboard | Optional theo spec | Khi cần OTA model |
+| Push config realtime <= 7 giây | Pull đơn giản hơn MQTT | Khi muốn giữ đúng NFREQ.19 |
+| TTL/cron xóa data cũ | Dữ liệu demo nhỏ | Khi chạy lâu ngày |
+| Reward/student points backend | Ngoài core dashboard | Khi spec demo cần gamification thật |
 
-## 5. Những điểm có rủi ro nếu không sửa
+## 5. Việc còn lại — cần leader quyết định trước khi code tiếp
 
-### 5.1 Thiếu index cho `daily_stats`
+### 5.1 Đơn vị threshold chưa thống nhất (chưa đổi so với lần trước)
 
-Backend query:
+Firestore hiện lưu threshold dạng ratio `0.8`, UI xử lý theo `%` 80-100 (mapping ở tầng frontend). **Đề xuất giữ nguyên cách này** (Firestore ratio, frontend convert khi hiển thị) vì đã hoạt động ổn định qua test — nhưng cần leader xác nhận chính thức để ghi vào tài liệu, tránh member khác sửa lại theo hướng khác sau này.
 
-```text
-where device_id == ?
-where date >= ?
-where date <= ?
-orderBy date asc
-```
+### 5.2 Tên field `alert_threshold` gây nhầm lẫn (chưa đổi so với lần trước)
 
-Design doc có đề xuất index `daily_stats(device_id asc, date asc)` nhưng `firestore.indexes.json` hiện chỉ có index cho `events`. Khi chạy thật, Firestore có thể báo lỗi cần composite index.
+Field này đang dùng cho ngưỡng đầy thùng, nhưng code frontend có chỗ dùng cùng field để suy ra "AI rejected". Đề xuất: nếu cần hiển thị "từ chối" chính xác, thêm field riêng `ai_threshold` hoặc `classification_status`. Cần leader quyết định có cần làm trong phạm vi hiện tại không.
 
-Khuyến nghị: thêm index này trước khi demo Statistics.
+### 5.3 Dashboard KPI và bảng điểm thưởng
 
-### 5.2 ConfigPage chưa lưu xuống backend
+`Tổng lượt bỏ rác`, `Rác tái chế`, doughnut chart, bảng điểm thưởng — cần kiểm tra lại xem đã nối thật hay vẫn còn mock, chưa xác nhận trong lần cập nhật này.
 
-Backend và frontend service đã sẵn sàng:
+## 6. Đánh giá đánh đổi (cập nhật)
 
-```text
-PATCH /api/devices/{deviceId}/config
-```
+So với đánh giá lần trước, các rủi ro chính đã được giải quyết:
 
-Nhưng UI `ConfigPage` hiện còn dùng mock `THRESHOLDS` và `showToast`. Nếu leader hỏi "dashboard có đổi ngưỡng thật chưa" thì câu trả lời hiện tại là chưa, mới có contract/service.
+- Không polling/realtime thì không đạt chỉ tiêu <= 5 giây → **Đã giải quyết.**
+- Config UI còn mock → **Đã giải quyết.**
+- Rủi ro còn lại chỉ nằm ở quyết định thiết kế (đơn vị threshold, tên field), không phải nợ kỹ thuật.
 
-### 5.3 Chưa đảm bảo dashboard cập nhật <= 5 giây
+## 7. Đề xuất việc nên làm tiếp trước merge/demo (cập nhật)
 
-`useBins`, `useFullAlerts`, `useDailyStats` fetch khi mount/thay đổi dependency, chưa polling. Để bám spec, bản prototype nên thêm polling 3-5 giây cho:
-
-- danh sách device/mức đầy
-- `FULL_ALERT`
-- daily stats nếu màn hình thống kê đang mở
-
-### 5.4 Đơn vị threshold chưa thống nhất
-
-Tài liệu DB có nói threshold mặc định `0.8`, UI lại hiển threshold theo `%` như `80`, `85`, `90`. Code so sánh mức đầy đang dùng `%`.
-
-Cần chốt:
-
-- Hoặc Firestore lưu threshold theo `%` 0-100.
-- Hoặc Firestore lưu ratio 0-1 và frontend convert khi hiển thị/lưu.
-
-Để demo ít lỗi, nên chốt `%` 0-100 vì UI và `fillPercent` đang theo phần trăm.
-
-### 5.5 Suy đoán "từ chối" AI qua `alertThreshold` có thể sai nghĩa
-
-Frontend đang tính kết quả phân loại:
-
-```text
-aiConfidence >= alertThreshold ? success : rejected
-```
-
-Trong design DB, `alert_threshold` nghiêng về ngưỡng cảnh báo đầy thùng, không phải AI confidence threshold. Nếu cần hiển thị "từ chối" chính xác, nên thêm field rõ hơn, ví dụ:
-
-```text
-ai_threshold
-classification_status: accepted | rejected
-```
-
-## 6. Đánh giá đánh đổi có đáng không
-
-Đánh đổi hiện tại là đáng giá cho prototype:
-
-- ESP32 ghi Firestore trực tiếp giúp giảm backend ingestion API, nhanh có demo, phù hợp quy mô 10 thiết bị.
-- Dashboard vẫn qua backend giúp giữ authentication/admin logic gọn và không lo expose quyền Firestore cho web client.
-- Chỉ precompute daily stats là hợp lý vì spec tối thiểu 30 ngày, chưa cần monthly stats riêng.
-- Chưa làm alert lifecycle/model OTA/reward backend là chấp nhận được nếu team trình bày rõ đây là extension, không phải core của prototype.
-
-Đánh đổi cần cảnh giác:
-
-- Không polling/realtime thì không đạt chỉ tiêu <= 5 giây của dashboard.
-- Config pull 30-60 giây không đạt NFREQ.19 <= 7 giây nếu spec giữ nguyên.
-- Config UI còn mock sẽ dễ bị hiểu nhầm là đã có remote config, trong khi backend mới sẵn sàng.
-
-## 7. Đề xuất việc nên làm tiếp trước merge/demo
-
-1. Thêm polling 3-5 giây cho device status và `FULL_ALERT`.
-2. Nối `ConfigPage` vào API `GET /api/devices`, `GET /api/devices/{id}`, `PATCH /api/devices/{id}/config`.
-3. Thêm Firestore index cho `daily_stats(device_id asc, date asc)`.
-4. Chốt đơn vị threshold là `%` hoặc ratio và sửa tài liệu/code cho đồng nhất.
-5. Nếu không kịp làm alert lifecycle, giữ local resolve nhưng ghi rõ trong slide/demo là prototype UI state.
+1. Thêm polling 3-5 giây — **Xong.**
+2. Nối ConfigPage vào API — **Xong.**
+3. Thêm Firestore index cho daily_stats — **Xong**, đồng thời phát hiện và fix thêm index cho `events`.
+4. **Chốt với leader** đơn vị threshold (ratio vs %) và tên field `alert_threshold` — đã đề xuất hướng ở mục 5.1/5.2, chờ xác nhận.
+5. Kiểm tra lại Dashboard KPI/reward có còn mock không (mục 5.3).
+6. Nếu leader OK, cập nhật `firestore.indexes.json` bằng cách export từ Firebase Console để đồng bộ với team (tránh member khác pull code về bị thiếu index do tạo thủ công qua Console không được commit).

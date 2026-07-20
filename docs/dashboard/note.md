@@ -1,5 +1,7 @@
 # Note dashboard, API và DB
 
+> Cập nhật lần 2 (20/07/2026) — sau khi nối thật ConfigPage, polling, alert lifecycle, và tạo Firestore composite index.
+
 ## Phạm vi mình đang check
 
 Phần dashboard hiện tại thuộc Sub-Goal 3: xem trạng thái thùng, cảnh báo đầy, thống kê phân loại, cấu hình ngưỡng và quản lý thiết bị từ xa. Kiến trúc đã chốt theo hướng:
@@ -19,40 +21,7 @@ daily_stats/{deviceId}_{yyyy-mm-dd}
 users/{uid}
 ```
 
-`devices/{deviceId}` lưu trạng thái hiện tại:
-
-- `name`
-- `location`
-- `last_seen_at`
-- `maintenance_mode`
-- `firmware_version`
-- `ai_model_version`
-- `compartments.organic/paper/plastic.threshold`
-- `compartments.organic/paper/plastic.fill_percent`
-- `compartments.organic/paper/plastic.status`
-
-`events` lưu lịch sử sự kiện:
-
-- `event_type`: `CLASSIFY`, `FULL_ALERT`, `ERROR`, `MAINTENANCE`
-- `waste_type`
-- `target_compartment`
-- `ai_confidence`
-- `fill_percent`
-- `alert_threshold`
-- `device_timestamp`
-- `received_at`
-- `synced_late`
-- `firmware_version`
-- `ai_model_version`
-
-`daily_stats` lưu thống kê ngày:
-
-- `device_id`
-- `date`
-- `organic_count`
-- `paper_count`
-- `plastic_count`
-- `total_count`
+(Cấu trúc field giữ nguyên như bản audit đầu — xem lại phần này ở note.md gốc nếu cần, không đổi.)
 
 ## API dashboard đang gọi
 
@@ -62,30 +31,35 @@ GET   /api/devices/{deviceId}
 PATCH /api/devices/{deviceId}/config
 GET   /api/devices/{deviceId}/events?eventType=CLASSIFY&limit=20
 GET   /api/devices/{deviceId}/events?eventType=FULL_ALERT&limit=50
+PATCH /api/devices/{deviceId}/events/{eventId}/resolve
 GET   /api/daily-stats?deviceId={id}&from={yyyy-mm-dd}&to={yyyy-mm-dd}
 ```
+(Bổ sung endpoint `resolve` — mới nối thật trong lần cập nhật này.)
 
-## Phần đã merge đúng
+## Phần đã merge đúng (cập nhật)
 
-- DTO frontend đang mirror đúng DTO backend theo camelCase.
-- Backend đọc Firestore field snake_case bằng `@PropertyName`, sau đó trả JSON camelCase cho frontend.
-- `DashboardPage`, `BinDetailPage`, `StatisticsPage`, `AlertsPage` đã có đường đọc dữ liệu thật từ backend thông qua service/hook.
-- Cloud Function đã tăng `daily_stats` khi có event `CLASSIFY`.
-- Cloud Function đã cập nhật `compartments.{type}.status = "full"` khi có event `FULL_ALERT`.
-- Security Rules đã chặn dashboard/client đọc ghi trực tiếp vào `daily_stats` và `users`, chỉ cho device dùng `device_id` đọc/ghi path của nó.
+- DTO frontend mirror đúng DTO backend theo camelCase.
+- Backend đọc Firestore field snake_case bằng `@PropertyName`, trả JSON camelCase cho frontend.
+- `DashboardPage`, `BinDetailPage`, `StatisticsPage`, `AlertsPage` đọc dữ liệu thật từ backend qua service/hook.
+- Cloud Function tăng `daily_stats` khi có event `CLASSIFY`.
+- Cloud Function cập nhật `compartments.{type}.status = "full"` khi có event `FULL_ALERT`.
+- Security Rules chặn dashboard/client đọc ghi trực tiếp `daily_stats` và `users`.
+- **[MỚI] `ConfigPage` đã nối API thật** — gọi `PATCH /api/devices/{id}/config`, không còn dùng `THRESHOLDS` mock.
+- **[MỚI] Polling 3-5 giây đã thêm** cho `useBins`, `useDailyStats`, `useFullAlerts` — đạt yêu cầu cập nhật dashboard ≤ 5 giây.
+- **[MỚI] Alert lifecycle đã nối thật** — nút "Xử lý" gọi `PATCH .../resolve`, backend cập nhật `alert_status`, `resolved_at`, `resolved_by` trong Firestore; đã test xác nhận trạng thái giữ nguyên sau khi refresh.
+- **[MỚI] Firestore composite index đã tạo** cho `events` (`event_type` + `device_timestamp`) và `daily_stats` (`device_id` + `date`).
 
 ## Phần còn mock/chưa nối thật
 
-- `ConfigPage` vẫn dùng `THRESHOLDS` trong `mockData` và chỉ show toast khi lưu. Service `updateDeviceConfig` đã có nhưng UI chưa gọi.
-- Dashboard KPI `Tổng lượt bỏ rác`, `Rác tái chế`, doughnut `Phân loại rác hôm nay` còn placeholder/static.
+- Dashboard KPI `Tổng lượt bỏ rác`, `Rác tái chế`, doughnut `Phân loại rác hôm nay` — **cần kiểm tra lại**, chưa xác nhận đã nối thật trong lần cập nhật này.
 - Bảng điểm thưởng `REWARDS` vẫn là mock, chưa có backend/schema trong prototype hiện tại.
-- Alerts có nút "Xử lý" nhưng chỉ đổi local state, chưa có API/collection alert lifecycle.
-- Các hook dashboard/alerts/stats fetch một lần, chưa polling 3-5 giây nên chưa chứng minh được yêu cầu cập nhật dashboard <= 5 giây.
 
-## Điểm cần chú ý khi merge với team
+## Điểm cần chú ý khi merge với team (cập nhật)
 
-1. Nếu cần demo realtime, thêm polling 3-5 giây cho `useBins`, `useFullAlerts`, và có thể cho `useDailyStats`.
-2. Nếu muốn cấu hình ngưỡng chạy thật, nối `ConfigPage` với `fetchAllBins/fetchBinThresholds/updateDeviceConfig`, bỏ `THRESHOLDS` mock.
-3. Thêm Firestore composite index cho `daily_stats`: `device_id ASC`, `date ASC`.
-4. Thống nhất đơn vị `threshold`: DB design ghi mặc định `0.8`, UI đang hiển/lưu theo `%` 80-100. Cần chốt một đơn vị. Code frontend hiện đang xử lý threshold như phần trăm.
-5. Nếu event `alert_threshold` dùng để so sánh AI confidence thì tên field đang gây nhầm lẫn, vì `alert_threshold` trong spec DB nghiêng về ngưỡng đầy thùng. Nên có field riêng cho AI rejection threshold nếu cần hiển thị "từ chối" chính xác.
+1. Thêm polling 3-5 giây — **Đã xong.**
+2. Nối `ConfigPage` với API thật — **Đã xong.**
+3. Thêm Firestore composite index cho `daily_stats` — **Đã xong**, đồng thời phát hiện và tạo thêm luôn index cho `events` (chưa được nhắc trong audit đầu, nhưng cũng bị lỗi tương tự).
+4. **[CHƯA GIẢI QUYẾT]** Thống nhất đơn vị `threshold`: DB ghi mặc định `0.8` (dạng ratio 0-1), UI hiện đang xử lý theo `%` 80-100. Cần chốt với leader một đơn vị duy nhất — hiện tại code frontend có xử lý mapping ratio↔percent ở tầng UI, cần leader xác nhận đây có phải hướng đúng không.
+5. **[CHƯA GIẢI QUYẾT]** Tên field `alert_threshold` trong event đang gây nhầm lẫn giữa "ngưỡng đầy thùng" và "ngưỡng AI confidence". Cần leader quyết định có tách field riêng hay không.
+6. **[MỚI] Lưu ý kỹ thuật cho backend team:** nâng cấp `firebase-admin` từ `9.4.3` lên `9.10.0` — bản cũ không tương thích với version protobuf/gRPC mà Spring Boot 4 BOM kéo về, gây lỗi verify chữ ký JWT (`Failed to verify the signature of Firebase ID token`) dù token/credential hoàn toàn hợp lệ. Đây là lỗi rất khó debug vì không liên quan gì tới logic code, ai gặp lại nên biết trước.
+7. **[MỚI] Lưu ý cho model Firestore:** khi dùng Lombok `@Data` kèm `@PropertyName` (Firestore SDK), annotation processing có thể fail âm thầm tuỳ môi trường máy — nếu thấy warning `PojoBeanMapper: No setter/field for X found`, kiểm tra ngay xem Lombok có đang thực sự sinh getter/setter hay không trước khi nghi ngờ code logic.
