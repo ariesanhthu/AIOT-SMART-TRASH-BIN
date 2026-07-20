@@ -16,7 +16,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 public class DeviceService {
 
@@ -36,6 +38,7 @@ public class DeviceService {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Bị gián đoạn khi đọc Firestore", e);
         } catch (ExecutionException e) {
+            log.error("Lỗi khi đọc Firestore", e.getCause());
             throw new RuntimeException("Lỗi khi đọc Firestore", e.getCause());
         }
 
@@ -52,6 +55,7 @@ public class DeviceService {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Bị gián đoạn khi đọc Firestore", e);
         } catch (ExecutionException e) {
+            log.error("Lỗi khi đọc Firestore", e.getCause());
             throw new RuntimeException("Lỗi khi đọc Firestore", e.getCause());
         }
 
@@ -73,6 +77,7 @@ public class DeviceService {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Bị gián đoạn khi đọc Firestore", e);
         } catch (ExecutionException e) {
+            log.error("Lỗi khi đọc Firestore", e.getCause());
             throw new RuntimeException("Lỗi khi đọc Firestore", e.getCause());
         }
 
@@ -100,7 +105,8 @@ public class DeviceService {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Bị gián đoạn khi ghi Firestore", e);
         } catch (ExecutionException e) {
-            throw new RuntimeException("Lỗi khi ghi Firestore", e.getCause());
+            log.error("Lỗi khi ghi Firestore", e.getCause());
+            throw new RuntimeException("Lỗi khi đọc Firestore", e.getCause());
         }
     }
 
