@@ -6,7 +6,9 @@
 
 Hướng hiện tại không sai hướng đồ án. Kiến trúc Dashboard -> Backend -> Firestore và ESP32 -> Firestore trực tiếp phù hợp prototype.
 
-**[CẬP NHẬT]** So với lần audit trước, bản hiện tại đã tiến thêm một bước quan trọng: **polling <= 5 giây, ConfigPage nối API thật, alert lifecycle có backend thật** đều đã hoàn thành và test xác nhận hoạt động đúng. Phần còn thiếu chỉ còn ở mức "cần leader quyết định hướng" (đơn vị threshold, tên field) chứ không còn là nợ kỹ thuật (technical debt) nữa.
+**[CẬP NHẬT 0.1]** So với lần audit trước, bản hiện tại đã tiến thêm một bước quan trọng: **polling <= 5 giây, thêm các endpoint mới như `PATCH .../resolve`** đều đã hoàn thành và test xác nhận hoạt động đúng. Phần còn thiếu chỉ còn ở mức "cần leader quyết định hướng" (đơn vị threshold, tên field) chứ không còn là nợ kỹ thuật (technical debt) nữa.
+
+**[CẬP NHẬT 0.2]** Bảng điểm thưởng `REWARDS` đã cập nhật thành `useRanking` hook, đọc thật từ backend endpoint `/api/daily-stats/ranking?days=7`, realdata cho Dashboard doughnut và 2 kpi quá `/api/daily-stats/summary` — **Xong**. Phần còn mock/chưa nối thật: `ConfigPage` vẫn còn mock `AI_CONFIDENCE_DEFAULTS`, `MODEL_VERSION_LIST`, `MQTT_DEFAULTS` từ `mockData.ts` — vì chưa có OTA model và chưa có MQTT broker thật. Nhóm cần chót có sử dụng tính năng này hay không.
 
 ## 2. Đối chiếu theo nhóm yêu cầu (cập nhật)
 
@@ -36,6 +38,10 @@ Hướng hiện tại không sai hướng đồ án. Kiến trúc Dashboard -> B
 - Sửa 2 bug kỹ thuật phát sinh trong quá trình tích hợp (không nằm trong spec nhưng đáng ghi lại cho team):
   - Lombok `@Data` không copy annotation `@PropertyName` sang getter/setter tự sinh → phải viết tay getter/setter cho `Device`, `Compartment`, `EventData`, `DailyStat`.
   - `firebase-admin:9.4.3` không tương thích với protobuf/gRPC version mà Spring Boot 4 BOM kéo về → nâng lên `9.10.0` để fix lỗi verify JWT signature.
+- **SummaryStatsToday** thêm endpoint mới `GET /api/daily-stats/summary?date={yyyy-mm-dd}` cho Dashboard KPI và bảng điểm thưởng để lấy dữ liệu thật từừng ngày — xác nhận đã nối thật trong lần cập nhật này doughnut và 2 kpi đã show data.
+- **RankingByDailyStats** thêm `className` vào `DeviceResponse`, `GET /api/daily-stats/ranking?days={7|30}` để FE hiển thị tên lớp thùng (Class A/B/C) — xác nhận được tính năng ranking xếp hạng các thùng - lớp học tương ứng.
+- **DailyStats** Backend có cài đặt endpoint `GET /api/daily-stats` để FE có thể lấy thống kê theo ngày cụ thể. FE chưa có UI hiển thị thống kê theo ngày cụ thể dù đã nối thật với endpoint `GET /api/daily-stats?deviceId={id}&from={yyyy-mm-dd}&to={yyyy-mm-dd}`. Chỉ hiển thị 7 ngày gần nhất. (Chọn ngày range sẽ thêm sau.)
+- **Threshold unit**: DB ghi mặc định `0.8` (dạng ratio 0-1), UI hiện đang xử lý theo `%` 80-100. Chốt hướng backend 0-1, frontend convert khi hiển thị.
 
 ## 4. Những gì vẫn cố ý defer (không đổi so với lần trước)
 
@@ -49,31 +55,11 @@ Hướng hiện tại không sai hướng đồ án. Kiến trúc Dashboard -> B
 
 ## 5. Việc còn lại — cần leader quyết định trước khi code tiếp
 
-### 5.1 Đơn vị threshold chưa thống nhất (chưa đổi so với lần trước)
-
-Firestore hiện lưu threshold dạng ratio `0.8`, UI xử lý theo `%` 80-100 (mapping ở tầng frontend). **Đề xuất giữ nguyên cách này** (Firestore ratio, frontend convert khi hiển thị) vì đã hoạt động ổn định qua test — nhưng cần leader xác nhận chính thức để ghi vào tài liệu, tránh member khác sửa lại theo hướng khác sau này.
-
-### 5.2 Tên field `alert_threshold` gây nhầm lẫn (chưa đổi so với lần trước)
-
-Field này đang dùng cho ngưỡng đầy thùng, nhưng code frontend có chỗ dùng cùng field để suy ra "AI rejected". Đề xuất: nếu cần hiển thị "từ chối" chính xác, thêm field riêng `ai_threshold` hoặc `classification_status`. Cần leader quyết định có cần làm trong phạm vi hiện tại không.
-
-### 5.3 Dashboard KPI và bảng điểm thưởng
-
-`Tổng lượt bỏ rác`, `Rác tái chế`, doughnut chart, bảng điểm thưởng — cần kiểm tra lại xem đã nối thật hay vẫn còn mock, chưa xác nhận trong lần cập nhật này.
-
-## 6. Đánh giá đánh đổi (cập nhật)
-
-So với đánh giá lần trước, các rủi ro chính đã được giải quyết:
-
-- Không polling/realtime thì không đạt chỉ tiêu <= 5 giây → **Đã giải quyết.**
-- Config UI còn mock → **Đã giải quyết.**
-- Rủi ro còn lại chỉ nằm ở quyết định thiết kế (đơn vị threshold, tên field), không phải nợ kỹ thuật.
-
-## 7. Đề xuất việc nên làm tiếp trước merge/demo (cập nhật)
-
-1. Thêm polling 3-5 giây — **Xong.**
-2. Nối ConfigPage vào API — **Xong.**
-3. Thêm Firestore index cho daily_stats — **Xong**, đồng thời phát hiện và fix thêm index cho `events`.
-4. **Chốt với leader** đơn vị threshold (ratio vs %) và tên field `alert_threshold` — đã đề xuất hướng ở mục 5.1/5.2, chờ xác nhận.
-5. Kiểm tra lại Dashboard KPI/reward có còn mock không (mục 5.3) - **Xong**.
-6. Nếu leader OK, cập nhật `firestore.indexes.json` bằng cách export từ Firebase Console để đồng bộ với team (tránh member khác pull code về bị thiếu index do tạo thủ công qua Console không được commit) **Xong**.
+### 5.1 alert_threshold field gây nhầm lẫn (chưa đổi so với lần trước)
+- Nhóm chốt AI model có trả về phân loại `rejected` hay không, nên chưa có field riêng `ai_threshold` hay `classification_status` trong event. Hiện tại vẫn dùng chung field `alert_threshold` cho cả "ngưỡng đầy thùng" và "ngưỡng AI confidence", gây nhầm lẫn. Cụ thể là có thể có filter để lọc ra các event bị "AI rejected".
+### 5.2 Trang StatisticsPage
+- Chưa có UI hiển thị thống kê theo ngày cụ thể dù đã nối thật với endpoint `GET /api/daily-stats?deviceId={id}&from={yyyy-mm-dd}&to={yyyy-mm-dd}`. Chỉ hiển thị thống kê theo ngày mặc định (7 ngày gần nhất) trong lần cập nhật này. Cần leader quyết định có cần thêm UI chọn from/to date range hay không.
+### 5.3 Trang ConfigPage
+- Vẫn còn mock `AI_CONFIDENCE_DEFAULTS`, `MODEL_VERSION_LIST`, `MQTT_DEFAULTS` từ `mockData.ts` — vì chưa có OTA model và chưa có MQTT broker thật. Nhóm cần chốt có sử dụng tính năng này hay không.
+### 5.4 Trạng thái online/offline của thiết bị
+- Hiện tại dashboard chỉ dựa vào `last_seen_at` để suy ra ít hơn 5 phút gì đó, chưa có field `online_status` riêng. Nếu muốn có trạng thái realtime, cần thêm Cloud Function cập nhật `online_status` khi ESP32 gửi event hoặc ping. Cần leader quyết định có cần thêm field `online_status` hay không.

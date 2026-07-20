@@ -5,7 +5,7 @@ import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement
 import { useDailyStats } from '../hooks/useDailyStats';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement);
-
+// Page cho xem theo thống kê theo thùng từng ngày nhưng chưa có chỗ để chọn from/to date range, chỉ hiển thị 7 ngày gần nhất. (Chọn ngày range sẽ thêm sau.)
 interface Props {
   bins: Bin[];
 }

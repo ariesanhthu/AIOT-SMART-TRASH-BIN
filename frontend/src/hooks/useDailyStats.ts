@@ -11,7 +11,7 @@ export function useDailyStats(deviceId: string | null, days = 7) {
   useEffect(() => {
     if (!deviceId) return;
     let cancelled = false;
-
+    // Load daily stats for the given deviceId and date range với to là ngày hôm nay, from là (days - 1) ngày trước đó. Ví dụ days=7 thì from là 6 ngày trước, to là hôm nay.
     const load = (showLoading: boolean) => {
       if (showLoading) setLoading(true);
       const to = new Date();
