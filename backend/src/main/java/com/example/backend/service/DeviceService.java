@@ -124,6 +124,7 @@ public class DeviceService {
                 Boolean.TRUE.equals(device.getMaintenanceMode()),
                 device.getFirmwareVersion(),
                 device.getAiModelVersion(),
+                device.getClassName(),
                 device.getCompartments()
         );
     }

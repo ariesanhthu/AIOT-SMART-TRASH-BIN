@@ -14,6 +14,7 @@ public class Device {
     private Boolean maintenanceMode;
     private String firmwareVersion;
     private String aiModelVersion;
+    private String className;
     private Map<String, Compartment> compartments;
 
     public String getName() { return name; }
@@ -41,6 +42,11 @@ public class Device {
     public String getAiModelVersion() { return aiModelVersion; }
     @PropertyName("ai_model_version")
     public void setAiModelVersion(String aiModelVersion) { this.aiModelVersion = aiModelVersion; }
+
+    @PropertyName("class_name")
+    public String getClassName() { return className; }
+    @PropertyName("class_name")
+    public void setClassName(String className) { this.className = className; }
 
     public Map<String, Compartment> getCompartments() { return compartments; }
     public void setCompartments(Map<String, Compartment> compartments) { this.compartments = compartments; }

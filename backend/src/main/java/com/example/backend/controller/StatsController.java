@@ -3,6 +3,7 @@ package com.example.backend.controller;
 import com.example.backend.dto.response.DailyStatResponse;
 import com.example.backend.dto.response.DailyStatSummaryResponse;
 import com.example.backend.service.StatsService;
+import com.example.backend.dto.response.DeviceRankResponse;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -32,5 +33,10 @@ public class StatsController {
     @GetMapping("/summary")
     public DailyStatSummaryResponse getSummary(@RequestParam(required = false) String date) {
         return statsService.getSummary(date);
+    }
+
+    @GetMapping("/ranking")
+    public List<DeviceRankResponse> getRanking(@RequestParam(defaultValue = "7") int days) {
+        return statsService.getRanking(days);
     }
 }

@@ -12,5 +12,6 @@ public record DeviceResponse(
         boolean maintenanceMode,
         String firmwareVersion,
         String aiModelVersion,
+        String className,
         Map<String, Compartment> compartments
 ) {}

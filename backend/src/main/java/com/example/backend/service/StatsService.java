@@ -2,6 +2,7 @@ package com.example.backend.service;
 
 import com.example.backend.dto.response.DailyStatResponse;
 import com.example.backend.dto.response.DailyStatSummaryResponse;
+import com.example.backend.dto.response.DeviceRankResponse;
 import com.example.backend.model.DailyStat;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.Query;
@@ -78,6 +79,36 @@ public class StatsService {
         return new DailyStatSummaryResponse(
                 targetDate, organic, paper, plastic, paper + plastic, organic + paper + plastic
         );
+    }
+
+    public List<DeviceRankResponse> getRanking(int days) {
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"));
+        LocalDate fromDate = today.minusDays(days - 1);
+        String from = fromDate.toString();
+        String to = today.toString();
+
+        Query query = firestore.collection("daily_stats")
+                .whereGreaterThanOrEqualTo("date", from)
+                .whereLessThanOrEqualTo("date", to);
+
+        QuerySnapshot snapshot;
+        try {
+            snapshot = query.get().get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Bị gián đoạn khi đọc Firestore", e);
+        } catch (ExecutionException e) {
+            log.error("Lỗi khi đọc Firestore", e.getCause());
+            throw new RuntimeException("Lỗi khi đọc Firestore", e.getCause());
+        }
+
+        return snapshot.getDocuments().stream()
+                .map(doc -> doc.toObject(DailyStat.class))
+                .collect(Collectors.groupingBy(DailyStat::getDeviceId, Collectors.summingLong(stat -> stat.getTotalCount() != null ? stat.getTotalCount() : 0)))
+                .entrySet().stream()
+                .map(entry -> new DeviceRankResponse(entry.getKey(), entry.getValue()))
+                .sorted((a, b) -> Long.compare(b.totalCount(), a.totalCount()))
+                .collect(Collectors.toList());
     }
 
     private DailyStatResponse toDailyStatResponse(QueryDocumentSnapshot doc) {
