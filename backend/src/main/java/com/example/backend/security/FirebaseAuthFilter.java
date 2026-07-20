@@ -29,7 +29,8 @@ public class FirebaseAuthFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
         boolean isApi = path.startsWith("/api/");
-        boolean isWrite = !"GET".equalsIgnoreCase(request.getMethod());
+        boolean isPreflight = "OPTIONS".equalsIgnoreCase(request.getMethod());
+        boolean isWrite = !"GET".equalsIgnoreCase(request.getMethod()) && !isPreflight;
         // Thiết bị chưa có Firebase ID Token lúc gọi endpoint cấp token
         // (đó chính là mục đích của endpoint này) — xác thực bằng
         // provisioning secret trong DeviceAuthService thay vì filter này.
@@ -53,15 +54,26 @@ public class FirebaseAuthFilter extends OncePerRequestFilter {
         }
 
         String idToken = header.substring(BEARER_PREFIX.length());
-
-        try {
-            FirebaseToken decoded = FirebaseAuth.getInstance().verifyIdToken(idToken);
-            request.setAttribute("uid", decoded.getUid());
-            request.setAttribute("email", decoded.getEmail());
-        } catch (Exception e) {
+        FirebaseToken decoded = null;
+        Exception lastError = null;
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            try {
+                decoded = FirebaseAuth.getInstance().verifyIdToken(idToken);
+                break;
+            } catch (Exception e) {
+                lastError = e;
+                if (attempt < 3) {
+                    try { Thread.sleep(300); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                }
+            }
+        }
+        if (decoded == null) {
+            if (lastError != null) lastError.printStackTrace();
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token không hợp lệ hoặc đã hết hạn");
             return;
         }
+        request.setAttribute("uid", decoded.getUid());
+        request.setAttribute("email", decoded.getEmail());
 
         filterChain.doFilter(request, response);
     }
