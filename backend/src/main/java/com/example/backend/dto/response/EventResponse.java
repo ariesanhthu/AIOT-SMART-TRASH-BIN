@@ -14,5 +14,8 @@ public record EventResponse(
         String receivedAt,
         boolean syncedLate,
         String firmwareVersion,
-        String aiModelVersion
+        String aiModelVersion,
+        String alertStatus,
+        String resolvedAt,
+        String resolvedBy
 ) {}
