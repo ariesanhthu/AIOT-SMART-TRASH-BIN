@@ -89,3 +89,12 @@ export interface AlertRow {
   fill: number;
   status: 'pending' | 'resolved';
 }
+
+export interface DailyStatSummaryDto {
+  date: string;
+  organicCount: number;
+  paperCount: number;
+  plasticCount: number;
+  recyclableCount: number;
+  totalCount: number;
+}

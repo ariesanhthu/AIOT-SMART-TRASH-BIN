@@ -4,6 +4,7 @@ import type { Bin, AlertRow } from '../types/api';
 import { WASTE_TYPES } from '../constants/wasteTypes';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
+import { useTodaySummary } from '../hooks/useTodaySummary';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -19,14 +20,12 @@ export const DashboardPage: React.FC<Props> = ({ bins, alerts, setPage }) => {
   const onlineBins = useMemo(() => bins.filter(b => b.online).length, [bins]);
   const dashBins = bins.slice(0, 4);
   const pendingAlerts = useMemo(() => alerts.filter(a => a.status === 'pending').slice(0, 3), [alerts]);
+  const { summary } = useTodaySummary();
 
-  // TODO: "Tổng lượt bỏ rác" / "Rác tái chế" / doughnut "hôm nay" cần 1 endpoint
-  // tổng hợp riêng (StatsController hiện chỉ trả theo khoảng ngày cho 1 deviceId,
-  // không có "hôm nay, tất cả bin"). Tạm giữ số tĩnh cho tới khi có endpoint đó.
   const chartData = {
     labels: ['Hữu cơ', 'Giấy', 'Nhựa'],
     datasets: [{
-      data: [35, 40, 25],
+      data: [summary.organicCount, summary.paperCount, summary.plasticCount],
       backgroundColor: ['#22c55e', '#f59e0b', '#3b82f6'],
       borderWidth: 0,
       hoverOffset: 6,
@@ -54,7 +53,7 @@ export const DashboardPage: React.FC<Props> = ({ bins, alerts, setPage }) => {
           <div className="flex items-start justify-between">
             <div>
               <p className="label-caps" style={{ color: 'var(--outline)' }}>Tổng lượt bỏ rác</p>
-              <p className="kpi-number mt-1" style={{ color: 'var(--on-surface)' }}>—</p>
+              <p className="kpi-number mt-1" style={{ color: 'var(--on-surface)' }}>{summary.totalCount}</p>
             </div>
             <div className="stat-icon-wrap" style={{ background: 'var(--surface-container)' }}>
               <i className="fa-solid fa-trash-can" style={{ color: 'var(--outline)' }}></i>
@@ -66,7 +65,7 @@ export const DashboardPage: React.FC<Props> = ({ bins, alerts, setPage }) => {
           <div className="flex items-start justify-between">
             <div>
               <p className="label-caps" style={{ color: 'var(--outline)' }}>Rác tái chế</p>
-              <p className="kpi-number mt-1" style={{ color: 'var(--on-surface)' }}>—</p>
+              <p className="kpi-number mt-1" style={{ color: 'var(--on-surface)' }}>{summary.recyclableCount}</p>
             </div>
             <div className="stat-icon-wrap" style={{ background: '#dbeafe' }}>
               <i className="fa-solid fa-recycle" style={{ color: 'var(--color-plastic)' }}></i>

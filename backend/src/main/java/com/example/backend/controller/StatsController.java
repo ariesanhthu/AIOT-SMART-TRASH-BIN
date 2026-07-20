@@ -1,6 +1,7 @@
 package com.example.backend.controller;
 
 import com.example.backend.dto.response.DailyStatResponse;
+import com.example.backend.dto.response.DailyStatSummaryResponse;
 import com.example.backend.service.StatsService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -26,5 +27,10 @@ public class StatsController {
             @RequestParam String to
     ) {
         return statsService.getDailyStats(deviceId, from, to);
+    }
+
+    @GetMapping("/summary")
+    public DailyStatSummaryResponse getSummary(@RequestParam(required = false) String date) {
+        return statsService.getSummary(date);
     }
 }
