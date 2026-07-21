@@ -17,14 +17,9 @@ export async function fetchClassifyHistory(deviceId: string, limit = 20): Promis
     .filter((e) => e.wasteType !== null)
     .map((e) => ({
       time: e.deviceTimestamp ? new Date(e.deviceTimestamp).toLocaleTimeString('vi-VN') : '',
-      type: e.wasteType!,
+      wasteType: e.wasteType,
       compartment: e.targetCompartment ?? '',
-      accuracy: (e.aiConfidence ?? 0) * 100,
-      // "Từ chối" trong spec = AI confidence dưới ngưỡng -> không mở nắp (FREQ.5).
-      // Backend hiện không có field riêng đánh dấu "rejected"; suy đoán tạm qua
-      // aiConfidence < alertThreshold. TODO: xác nhận lại với AI team field nào
-      // (nếu có) đánh dấu chính xác việc bị từ chối, tránh suy đoán sai.
-      result: (e.aiConfidence ?? 0) >= (e.alertThreshold ?? 0) ? 'success' : 'rejected',
+      result: e.wasteType === 'REJECTED' ? 'rejected' : 'success',
     }));
 }
 

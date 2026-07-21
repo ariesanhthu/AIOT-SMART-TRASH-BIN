@@ -96,27 +96,23 @@ export const BinDetailPage: React.FC<Props> = ({ bins }) => {
                   <th>Thời gian</th>
                   <th>Loại rác</th>
                   <th>Ngăn mở</th>
-                  <th>Độ chính xác AI</th>
                   <th>Kết quả</th>
                 </tr>
               </thead>
               <tbody>
                 {history.map((row, i) => {
-                  const wt = WASTE_TYPES[row.type];
-                  const accColor = row.accuracy >= 90 ? 'var(--primary-container)' : row.accuracy >= 80 ? '#d97706' : 'var(--error)';
+                  const wt = row.wasteType && row.wasteType !== 'REJECTED' ? WASTE_TYPES[row.wasteType] : null;
                   return (
                     <tr key={i}>
                       <td className="font-mono" style={{ fontSize: '13px', color: 'var(--outline)' }}>{row.time}</td>
-                      <td><span className={`badge badge-pill ${wt.bgClass}`}>{wt.label}</span></td>
-                      <td style={{ color: 'var(--outline)' }}>Ngăn {row.compartment}</td>
                       <td>
-                        <div className="flex items-center gap-2">
-                          <div className="progress-track" style={{ width: '48px' }}>
-                            <div className="progress-fill" style={{ width: `${row.accuracy}%`, background: row.accuracy >= 90 ? '#22c55e' : row.accuracy >= 80 ? '#d97706' : 'var(--error)' }}></div>
-                          </div>
-                          <span style={{ fontWeight: 600, fontSize: '13px', color: accColor }}>{row.accuracy.toFixed(1)}%</span>
-                        </div>
+                        {wt ? (
+                          <span className={`badge badge-pill ${wt.bgClass}`}>{wt.label}</span>
+                        ) : (
+                          <span className="badge badge-pill badge-error">Từ chối</span>
+                        )}
                       </td>
+                      <td style={{ color: 'var(--outline)' }}>Ngăn {row.compartment}</td>
                       <td>
                         {row.result === 'success' ? (
                           <span className="badge badge-pill badge-success">Thành công</span>
