@@ -73,9 +73,9 @@
     "compartments": {
       "mapValue": {
         "fields": {
-          "nhua": { "integerValue": 20 },
-          "giay": { "integerValue": 80 },
-          "huu_co": { "integerValue": 65 }
+          "plastic": { "integerValue": 20 },
+          "paper": { "integerValue": 80 },
+          "organic": { "integerValue": 65 }
         }
       }
     }

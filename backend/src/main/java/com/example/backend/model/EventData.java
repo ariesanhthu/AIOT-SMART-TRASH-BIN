@@ -22,6 +22,7 @@ public class EventData {
     private String alertStatus;
     private Timestamp resolvedAt;
     private String resolvedBy;
+    private String imageUrl;
 
     @PropertyName("event_type")
     public String getEventType() { return eventType; }
@@ -92,4 +93,9 @@ public class EventData {
     public String getResolvedBy() { return resolvedBy; }
     @PropertyName("resolved_by")
     public void setResolvedBy(String resolvedBy) { this.resolvedBy = resolvedBy; }
+
+    @PropertyName("image_url")
+    public String getImageUrl() { return imageUrl; }
+    @PropertyName("image_url")
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
 }

@@ -99,7 +99,8 @@ public class EventService {
                 event.getAiModelVersion(),
                 event.getAlertStatus(),
                 event.getResolvedAt() != null ? event.getResolvedAt().toDate().toInstant().toString() : null,
-                event.getResolvedBy()
+                event.getResolvedBy(),
+                event.getImageUrl()
         );
     }
 }

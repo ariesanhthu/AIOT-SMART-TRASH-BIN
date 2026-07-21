@@ -20,6 +20,7 @@ export async function fetchClassifyHistory(deviceId: string, limit = 20): Promis
       wasteType: e.wasteType,
       compartment: e.targetCompartment ?? '',
       result: e.wasteType === 'REJECTED' ? 'rejected' : 'success',
+      imageUrl: e.imageUrl,   
     }));
 }
 

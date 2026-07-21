@@ -17,5 +17,6 @@ public record EventResponse(
         String aiModelVersion,
         String alertStatus,
         String resolvedAt,
-        String resolvedBy
+        String resolvedBy,
+        String imageUrl
 ) {}

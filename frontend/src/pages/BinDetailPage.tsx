@@ -11,6 +11,7 @@ export const BinDetailPage: React.FC<Props> = ({ bins }) => {
   const [selectedBinId, setSelectedBinId] = useState(bins[0]?.id ?? '');
   const bin = bins.find(b => b.id === selectedBinId) || bins[0];
   const { rows: history } = useClassifyHistory(bin?.id ?? null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   if (!bin) {
     return <section className="page-section"><p>Chưa có thiết bị nào.</p></section>;
@@ -58,7 +59,7 @@ export const BinDetailPage: React.FC<Props> = ({ bins }) => {
               const v = bin.compartments[k];
               if (v === undefined) return null;
               const wt = WASTE_TYPES[k];
-              const thresh = bin.thresholds[k] ?? 80; // 80 chỉ là fallback nếu backend chưa set threshold cho ngăn này
+              const thresh = bin.thresholds[k] ?? 80;
               const overThresh = v >= thresh;
 
               return (
@@ -94,6 +95,7 @@ export const BinDetailPage: React.FC<Props> = ({ bins }) => {
               <thead>
                 <tr>
                   <th>Thời gian</th>
+                  <th>Ảnh</th>
                   <th>Loại rác</th>
                   <th>Ngăn mở</th>
                   <th>Kết quả</th>
@@ -105,6 +107,18 @@ export const BinDetailPage: React.FC<Props> = ({ bins }) => {
                   return (
                     <tr key={i}>
                       <td className="font-mono" style={{ fontSize: '13px', color: 'var(--outline)' }}>{row.time}</td>
+                      <td>
+                        {row.imageUrl ? (
+                          <img
+                            src={row.imageUrl}
+                            alt="Ảnh chụp"
+                            style={{ width: '36px', height: '36px', objectFit: 'cover', borderRadius: '6px', cursor: 'pointer' }}
+                            onClick={() => setPreviewUrl(row.imageUrl)}
+                          />
+                        ) : (
+                          <span style={{ color: 'var(--outline-variant)', fontSize: '12px' }}>—</span>
+                        )}
+                      </td>
                       <td>
                         {wt ? (
                           <span className={`badge badge-pill ${wt.bgClass}`}>{wt.label}</span>
@@ -128,6 +142,15 @@ export const BinDetailPage: React.FC<Props> = ({ bins }) => {
           </div>
         </div>
       </div>
+
+      {previewUrl && (
+        <div
+          onClick={() => setPreviewUrl(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, cursor: 'pointer' }}
+        >
+          <img src={previewUrl} alt="Ảnh chụp phóng to" style={{ maxWidth: '90%', maxHeight: '90%', borderRadius: '8px' }} />
+        </div>
+      )}
     </section>
   );
 };

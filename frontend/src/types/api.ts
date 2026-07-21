@@ -34,6 +34,7 @@ export interface EventResponseDto {
   alertStatus: 'pending' | 'resolved' | null;
   resolvedAt: string | null;
   resolvedBy: string | null;
+  imageUrl: string | null;
 }
 
 export interface DailyStatDto {
@@ -70,6 +71,7 @@ export interface ClassifyHistoryRow {
   wasteType: WasteTypeKey | 'REJECTED' | null;
   compartment: string;
   result: 'success' | 'rejected';
+  imageUrl: string | null; 
 }
 
 export interface DailyChartData {
