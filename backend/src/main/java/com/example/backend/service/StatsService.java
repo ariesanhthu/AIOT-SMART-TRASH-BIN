@@ -16,6 +16,7 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 @Slf4j
 @Service
 public class StatsService {
@@ -49,13 +50,14 @@ public class StatsService {
                 .collect(Collectors.toList());
     }
 
-    public DailyStatSummaryResponse getSummary(String date) {
-        String targetDate = (date != null && !date.isBlank())
-                ? date
-                : LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).toString();
+    public DailyStatSummaryResponse getSummary(int days) {
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"));
+        String fromDate = today.minus(days - 1, ChronoUnit.DAYS).toString();
+        String toDate = today.toString();
 
         Query query = firestore.collection("daily_stats")
-                .whereEqualTo("date", targetDate);
+                .whereGreaterThanOrEqualTo("date", fromDate)
+                .whereLessThanOrEqualTo("date", toDate);
 
         QuerySnapshot snapshot;
         try {
@@ -77,7 +79,7 @@ public class StatsService {
         }
 
         return new DailyStatSummaryResponse(
-                targetDate, organic, paper, plastic, paper + plastic, organic + paper + plastic
+                toDate, organic, paper, plastic, paper + plastic, organic + paper + plastic
         );
     }
 
