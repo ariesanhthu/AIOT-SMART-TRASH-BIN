@@ -1,13 +1,20 @@
 import React, { useState } from 'react';
-import { type Bin, CLASSIFY_HISTORY_A1, THRESHOLDS, WASTE_TYPES } from '../data';
+import type { Bin } from '../types/api';
+import { WASTE_TYPES, WASTE_TYPE_KEYS } from '../constants/wasteTypes';
+import { useClassifyHistory } from '../hooks/useClassifyHistory';
 
 interface Props {
   bins: Bin[];
 }
 
 export const BinDetailPage: React.FC<Props> = ({ bins }) => {
-  const [selectedBinId, setSelectedBinId] = useState('A1');
+  const [selectedBinId, setSelectedBinId] = useState(bins[0]?.id ?? '');
   const bin = bins.find(b => b.id === selectedBinId) || bins[0];
+  const { rows: history } = useClassifyHistory(bin?.id ?? null);
+
+  if (!bin) {
+    return <section className="page-section"><p>Chưa có thiết bị nào.</p></section>;
+  }
 
   return (
     <section className="page-section">
@@ -47,9 +54,11 @@ export const BinDetailPage: React.FC<Props> = ({ bins }) => {
         <div className="card card-padding">
           <h2 className="title-sm mb-5" style={{ color: 'var(--on-surface)' }}>Mức đầy từng ngăn</h2>
           <div className="space-y-5">
-            {Object.entries(bin.compartments).map(([k, v]) => {
-              const wt = WASTE_TYPES[k as keyof typeof WASTE_TYPES];
-              const thresh = (THRESHOLDS[bin.id] as any)?.[k] || 80;
+            {WASTE_TYPE_KEYS.map((k) => {
+              const v = bin.compartments[k];
+              if (v === undefined) return null;
+              const wt = WASTE_TYPES[k];
+              const thresh = bin.thresholds[k] ?? 80; // 80 chỉ là fallback nếu backend chưa set threshold cho ngăn này
               const overThresh = v >= thresh;
 
               return (
@@ -78,7 +87,7 @@ export const BinDetailPage: React.FC<Props> = ({ bins }) => {
         <div className="card">
           <div style={{ padding: '16px 20px', borderBottom: '1px solid #E3E8E1', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <h2 className="title-sm" style={{ color: 'var(--on-surface)' }}>Lịch sử phân loại gần nhất</h2>
-            <span className="body-md" style={{ color: 'var(--outline)' }}>{CLASSIFY_HISTORY_A1.length} lượt</span>
+            <span className="body-md" style={{ color: 'var(--outline)' }}>{history.length} lượt</span>
           </div>
           <div className="overflow-x-auto">
             <table className="data-table">
@@ -92,8 +101,8 @@ export const BinDetailPage: React.FC<Props> = ({ bins }) => {
                 </tr>
               </thead>
               <tbody>
-                {CLASSIFY_HISTORY_A1.map((row, i) => {
-                  const wt = WASTE_TYPES[row.type as keyof typeof WASTE_TYPES];
+                {history.map((row, i) => {
+                  const wt = WASTE_TYPES[row.type];
                   const accColor = row.accuracy >= 90 ? 'var(--primary-container)' : row.accuracy >= 80 ? '#d97706' : 'var(--error)';
                   return (
                     <tr key={i}>

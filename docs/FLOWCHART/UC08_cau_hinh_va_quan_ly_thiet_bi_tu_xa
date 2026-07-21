@@ -1,0 +1,50 @@
+---
+config:
+  layout: fixed
+---
+flowchart TB
+    start(["UC8: Cấu hình và quản lý thiết bị từ xa"]) --> actor["Actor: Quản lý"]
+    actor --> trigger[/"Input / Trigger: Mở trang cấu hình<br>thiết bị trên dashboard"/]
+    select["Chọn thiết bị cần cấu hình"] --> action{"Hành động<br>muốn thực hiện?"}
+    action -- Ngưỡng đầy --> threshold["Cập nhật ngưỡng đầy<br>cho từng ngăn"]
+    threshold --> server[("Server xác thực quyền<br>và lưu lệnh")]
+    action -- Model AI --> ota["Tải lên file model AI mới"]
+    ota --> server
+    action -- Bảo trì --> maintenance["Bật hoặc tắt<br>chế độ bảo trì"]
+    maintenance --> server
+    server --> online{"Thiết bị đang<br>trực tuyến?"}
+    online -- Có --> push["Server đẩy lệnh<br>xuống firmware"]
+    push --> firmware["Firmware nhận lệnh,<br>xác nhận và áp dụng"]
+    firmware --> dashboard["Dashboard hiển thị<br>trạng thái thực thi thành công"]
+    online -- Không --> queue["Lệnh được lưu chờ<br>trên server"]
+    queue --> sync["Tự động áp dụng<br>khi thiết bị kết nối lại"]
+    sync --> firmware
+    dashboard --> output[/"Output: Thiết bị hoạt động<br>theo cấu hình mới"/]
+    output --> finish(["Kết thúc UC8"])
+    trigger --> select
+
+     start:::terminal
+     actor:::actor
+     trigger:::input
+     select:::process
+     action:::decision
+     threshold:::process
+     server:::data
+     ota:::process
+     maintenance:::process
+     online:::decision
+     push:::process
+     firmware:::process
+     dashboard:::process
+     queue:::warning
+     sync:::process
+     output:::output
+     finish:::terminal
+    classDef actor fill:#fff3cd,stroke:#b58105,color:#3d2b00
+    classDef input fill:#fef9c3,stroke:#ca8a04,color:#422006
+    classDef process fill:#f3e8ff,stroke:#9333ea,color:#3b0764
+    classDef decision fill:#ffedd5,stroke:#ea580c,color:#431407
+    classDef output fill:#dcfce7,stroke:#16a34a,color:#052e16
+    classDef data fill:#e0f2fe,stroke:#0284c7,color:#082f49
+    classDef terminal fill:#e5e7eb,stroke:#4b5563,color:#111827
+    classDef warning fill:#fee2e2,stroke:#dc2626,color:#450a0a

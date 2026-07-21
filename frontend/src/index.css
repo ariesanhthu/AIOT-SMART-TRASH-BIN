@@ -613,7 +613,7 @@
     /* ============================================================
        INPUT FIELDS
     ============================================================ */
-    .input-field {
+    .-field {
       width: 100%;
       background: var(--surface-container-lowest);
       border: 1px solid #E3E8E1;
@@ -637,7 +637,7 @@
       cursor: pointer;
       appearance: auto;
     }
-
+input
     /* ============================================================
        RANGE SLIDER
     ============================================================ */
@@ -737,6 +737,297 @@
       font-size: 16px;
       font-weight: 600;
       color: var(--on-surface);
+    }
+
+    /* ============================================================
+       CAMERA PAGE
+    ============================================================ */
+    .camera-page {
+      min-height: 100%;
+    }
+    .camera-page__header {
+      align-items: flex-start;
+    }
+    .camera-page__status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 36px;
+      padding: 8px 12px;
+      border: 1px solid #E3E8E1;
+      border-radius: var(--radius);
+      background: var(--surface-container-lowest);
+      color: var(--primary-container);
+      font-size: 13px;
+      font-weight: 700;
+      box-shadow: var(--shadow-card);
+    }
+    .esp-camera {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: var(--container-gap);
+      align-items: start;
+    }
+    .esp-camera__panel,
+    .esp-camera__side-panel,
+    .esp-camera__result {
+      background: var(--surface-container-lowest);
+      border: 1px solid #E3E8E1;
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-card);
+    }
+    .esp-camera__panel {
+      overflow: hidden;
+    }
+    .esp-camera__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 20px;
+      border-bottom: 1px solid #E3E8E1;
+    }
+    .esp-camera__eyebrow {
+      margin-bottom: 4px;
+      color: var(--outline);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .esp-camera__header h2,
+    .esp-camera__result-header h3 {
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 24px;
+      color: var(--on-surface);
+    }
+    .esp-camera__live {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 32px;
+      padding: 7px 10px;
+      border-radius: var(--radius-full);
+      background: var(--error-container);
+      color: var(--on-error-container);
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .esp-camera__live span {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 0 4px rgba(186, 26, 26, 0.12);
+    }
+    .esp-camera__live--connecting {
+      background: #FFF3D6;
+      color: #765900;
+    }
+    .esp-camera__live--live {
+      background: var(--secondary-container);
+      color: var(--on-secondary-container);
+    }
+    .esp-camera__live--live span {
+      box-shadow: 0 0 0 4px rgba(45, 106, 79, 0.14);
+    }
+    .esp-camera__live--error {
+      background: var(--error-container);
+      color: var(--on-error-container);
+    }
+    .esp-camera__stream {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 460px;
+      aspect-ratio: 16 / 10;
+      background: #111318;
+    }
+    .esp-camera__stream img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .esp-camera__side-panel {
+      padding: 18px;
+    }
+    .esp-camera__side-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .esp-camera__side-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      background: var(--primary-fixed);
+      color: var(--primary);
+    }
+    .esp-camera__actions {
+      display: grid;
+      gap: 10px;
+    }
+    .esp-camera__actions button,
+    .esp-camera__result-header button,
+    .esp-camera__thumb button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 42px;
+      padding: 0 14px;
+      border-radius: var(--radius);
+      font-family: 'Manrope', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+    }
+    .esp-camera__capture-button {
+      border: none;
+      background: var(--primary-container);
+      color: var(--on-primary);
+    }
+    .esp-camera__capture-button:hover {
+      background: var(--primary);
+    }
+    .esp-camera__capture-button:disabled,
+    .esp-camera__secondary-button:disabled,
+    .esp-camera__result-header button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .esp-camera__secondary-button,
+    .esp-camera__result-header button {
+      border: 1px solid #E3E8E1;
+      background: var(--surface-container-lowest);
+      color: var(--on-surface);
+    }
+    .esp-camera__secondary-button:hover,
+    .esp-camera__result-header button:hover {
+      border-color: var(--primary-container);
+      color: var(--primary);
+    }
+    .esp-camera__message {
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: var(--radius);
+      background: var(--surface-container-low);
+      color: var(--on-surface-variant);
+      font-size: 13px;
+      line-height: 18px;
+    }
+    .esp-camera__hint {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #E3E8E1;
+      color: var(--outline);
+      font-size: 12px;
+      line-height: 18px;
+    }
+    .esp-camera__result {
+      grid-column: 1 / -1;
+      overflow: hidden;
+    }
+    .esp-camera__result-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px 18px;
+      border-bottom: 1px solid #E3E8E1;
+    }
+    .esp-camera__result-header p {
+      margin-top: 4px;
+      color: var(--outline);
+      font-size: 13px;
+      line-height: 18px;
+    }
+    .esp-camera__result-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+    .esp-camera__gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 14px;
+      padding: 16px;
+      background: var(--surface-container-low);
+    }
+    .esp-camera__thumb {
+      overflow: hidden;
+      border: 1px solid #E3E8E1;
+      border-radius: var(--radius);
+      background: var(--surface-container-lowest);
+    }
+    .esp-camera__thumb img {
+      display: block;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      object-fit: contain;
+      background: #111318;
+    }
+    .esp-camera__thumb figcaption {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px 0;
+      color: var(--outline);
+      font-size: 12px;
+      line-height: 18px;
+    }
+    .esp-camera__thumb button {
+      width: calc(100% - 24px);
+      margin: 10px 12px 12px;
+      border: 1px solid #E3E8E1;
+      background: var(--surface-container-lowest);
+      color: var(--on-surface);
+    }
+    .esp-camera__thumb button:hover {
+      border-color: var(--primary-container);
+      color: var(--primary);
+    }
+
+    @media (max-width: 1100px) {
+      .esp-camera {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .camera-page__status {
+        width: 100%;
+      }
+      .esp-camera {
+        gap: 16px;
+      }
+      .esp-camera__header,
+      .esp-camera__result-header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+      .esp-camera__stream {
+        min-height: 280px;
+        aspect-ratio: 4 / 3;
+      }
+      .esp-camera__result-actions,
+      .esp-camera__result-header button {
+        width: 100%;
+      }
+      .esp-camera__gallery {
+        grid-template-columns: 1fr;
+      }
     }
 
     /* ============================================================

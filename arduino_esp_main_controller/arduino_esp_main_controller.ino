@@ -12,7 +12,7 @@
  * - Nguồn: Chân 5V & GND của ESP32-CAM nối chung vào hàng Busline nguồn của Mtiny.
  */
 
-#define TEST_MODE   // <-- THÊM dấu // ở đầu dòng này khi bạn kết nối nối với ESP32-CAM thật
+//#define TEST_MODE   // <-- THÊM dấu // ở đầu dòng này khi bạn kết nối nối với ESP32-CAM thật
 
 #include <Servo.h>
 #if !defined(TEST_MODE)

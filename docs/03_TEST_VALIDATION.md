@@ -1,5 +1,9 @@
 # Thành phần 3 — Test, kiểm tra và nghiệm thu
 
+> **Đã thay thế một phần:** metric/rejection v1 bên dưới chỉ mang tính lịch sử.
+> Kết quả ba lớp hiện hành nằm trong `AI/artifacts/metrics_int8.json` và
+> `AI/artifacts/comparison.json`.
+
 ## 1. Mục tiêu
 
 Phần test phải trả lời được:

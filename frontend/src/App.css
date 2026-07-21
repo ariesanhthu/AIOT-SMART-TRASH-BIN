@@ -182,3 +182,129 @@
     border-right-color: var(--border);
   }
 }
+
+.esp-camera {
+  width: min(920px, 100%);
+  padding: 24px;
+  border: 1px solid #dfe3e8;
+  border-radius: 20px;
+  background: #ffffff;
+}
+
+.esp-camera__header,
+.esp-camera__result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.esp-camera__header h2,
+.esp-camera__result-header h3 {
+  margin: 0;
+}
+
+.esp-camera__eyebrow {
+  margin: 0 0 4px;
+  color: #68707c;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.esp-camera__live {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: #fff0f0;
+  color: #c92222;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.esp-camera__live span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.esp-camera__stream {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 420px;
+  margin-top: 20px;
+  overflow: hidden;
+  border-radius: 16px;
+  background: #111318;
+}
+
+.esp-camera__stream img {
+  display: block;
+  width: 100%;
+  max-height: 600px;
+  object-fit: contain;
+}
+
+.esp-camera__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.esp-camera__actions button,
+.esp-camera__result-header button {
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 10px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.esp-camera__capture-button {
+  border: none;
+  background: #17191e;
+  color: #ffffff;
+}
+
+.esp-camera__capture-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.esp-camera__secondary-button {
+  border: 1px solid #d4d8de;
+  background: #ffffff;
+  color: #202329;
+}
+
+.esp-camera__message {
+  margin: 14px 0 0;
+  color: #626975;
+}
+
+.esp-camera__result {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #e7e9ed;
+}
+
+.esp-camera__result-header button {
+  border: 1px solid #d4d8de;
+  background: #ffffff;
+}
+
+.esp-camera__result > img {
+  display: block;
+  width: 100%;
+  max-height: 600px;
+  margin-top: 14px;
+  border-radius: 14px;
+  object-fit: contain;
+  background: #111318;
+}

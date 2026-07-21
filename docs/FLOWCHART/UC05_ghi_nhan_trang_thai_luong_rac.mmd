@@ -1,0 +1,46 @@
+flowchart TD
+    start([UC5: Ghi nhận trạng thái lượng rác])
+    trigger[/"Input / Trigger: Một lần bỏ rác thành công<br/>Mã thiết bị, tên ngăn, thời gian, ngưỡng đầy"/]
+    sensor["Device: Cảm biến siêu âm<br/>đọc khoảng cách"]
+    firmware["Device: Firmware mạch chính<br/>tính phần trăm đầy"]
+    compare{"Phần trăm đầy<br/>đạt ngưỡng?"}
+    status["Tạo dữ liệu trạng thái ngăn<br/>gồm mã thiết bị, tên ngăn,<br/>phần trăm đầy, thời gian"]
+    alert["Tạo cảnh báo gồm mã thiết bị,<br/>tên ngăn, phần trăm đầy, thời gian"]
+    payload["Đóng gói dữ liệu cần gửi"]
+    network{"Có kết nối mạng?"}
+    local[("Bộ nhớ cục bộ<br/>lưu dữ liệu tạm")]
+    retry["Tự động chờ và gửi lại<br/>khi mạng khôi phục"]
+    wifi["Device: Module Wi-Fi<br/>gửi dữ liệu lên server"]
+    server[("Server lưu trạng thái<br/>và cảnh báo")]
+    dashboard["Dashboard / App cập nhật trạng thái<br/>trong ≤ 5 giây kể từ lúc firmware ghi nhận"]
+    display["Hiển thị đúng thùng, đúng ngăn<br/>và cảnh báo nếu vượt ngưỡng"]
+    actor["Actor: Nhân viên dọn dẹp<br/>nhận trạng thái / cảnh báo"]
+    output[/"Output: Nhân viên biết chính xác<br/>thùng và ngăn cần đổ"/]
+    finish([Kết thúc UC5])
+
+    start --> trigger --> sensor --> firmware --> compare
+    compare -- Không --> status --> payload
+    compare -- Có --> alert --> payload
+    payload --> network
+    network -- Không --> local --> retry --> network
+    network -- Có --> wifi --> server --> dashboard --> display --> actor --> output --> finish
+
+    classDef actor fill:#fff3cd,stroke:#b58105,color:#3d2b00;
+    classDef device fill:#dbeafe,stroke:#2563eb,color:#102a56;
+    classDef input fill:#fef9c3,stroke:#ca8a04,color:#422006;
+    classDef process fill:#f3e8ff,stroke:#9333ea,color:#3b0764;
+    classDef decision fill:#ffedd5,stroke:#ea580c,color:#431407;
+    classDef output fill:#dcfce7,stroke:#16a34a,color:#052e16;
+    classDef warning fill:#fee2e2,stroke:#dc2626,color:#450a0a;
+    classDef data fill:#e0f2fe,stroke:#0284c7,color:#082f49;
+    classDef terminal fill:#e5e7eb,stroke:#4b5563,color:#111827;
+
+    class actor actor;
+    class sensor,firmware,wifi device;
+    class trigger input;
+    class status,payload,retry,dashboard,display process;
+    class compare,network decision;
+    class output output;
+    class alert warning;
+    class local,server data;
+    class start,finish terminal;

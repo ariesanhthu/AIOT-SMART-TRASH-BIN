@@ -1,0 +1,37 @@
+flowchart TD
+    start([UC7: Xem dashboard trạng thái thùng])
+    actor["Actor: Quản lý / Nhân viên dọn dẹp"]
+    trigger[/"Input / Trigger: Mở dashboard<br/>hoặc chọn thông báo đầy vừa nhận"/]
+    request["Dashboard gửi yêu cầu<br/>lấy dữ liệu hệ thống"]
+    server[("Server / Cơ sở dữ liệu<br/>trả trạng thái và thống kê")]
+    connection{"Thiết bị đang<br/>trực tuyến?"}
+    online["Hiển thị dữ liệu hiện tại:<br/>mức đầy từng ngăn, loại rác,<br/>thời gian cập nhật, điểm cộng"]
+    offline["Hiển thị trạng thái ngoại tuyến<br/>và dữ liệu cập nhật lần cuối"]
+    filter{"Người dùng có<br/>áp dụng bộ lọc?"}
+    apply["Lọc theo thùng, loại rác<br/>và khoảng thời gian"]
+    overview["Hiển thị danh sách thùng,<br/>thông báo đầy và thống kê tổng quan"]
+    output[/"Output: Người dùng nắm được<br/>trạng thái toàn bộ hệ thống"/]
+    finish([Kết thúc UC7])
+
+    start --> actor --> trigger --> request --> server --> connection
+    connection -- Có --> online --> filter
+    connection -- Không --> offline --> filter
+    filter -- Có --> apply --> overview
+    filter -- Không --> overview
+    overview --> output --> finish
+
+    classDef actor fill:#fff3cd,stroke:#b58105,color:#3d2b00;
+    classDef input fill:#fef9c3,stroke:#ca8a04,color:#422006;
+    classDef process fill:#f3e8ff,stroke:#9333ea,color:#3b0764;
+    classDef decision fill:#ffedd5,stroke:#ea580c,color:#431407;
+    classDef output fill:#dcfce7,stroke:#16a34a,color:#052e16;
+    classDef data fill:#e0f2fe,stroke:#0284c7,color:#082f49;
+    classDef terminal fill:#e5e7eb,stroke:#4b5563,color:#111827;
+
+    class actor actor;
+    class trigger input;
+    class request,online,offline,apply,overview process;
+    class connection,filter decision;
+    class output output;
+    class server data;
+    class start,finish terminal;

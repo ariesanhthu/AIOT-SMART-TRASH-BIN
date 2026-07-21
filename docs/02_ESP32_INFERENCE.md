@@ -1,5 +1,8 @@
 # Thành phần 2 — Suy luận và điều khiển trên ESP32
 
+> **Đã thay thế:** hợp đồng hai logits + rejection trong tài liệu này không còn
+> hợp lệ. Firmware hiện dùng một output INT8 `[1,3]`; xem `AI/esp32/README.md`.
+
 ## 1. Phạm vi
 
 Phần này chịu trách nhiệm:

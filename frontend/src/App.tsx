@@ -1,41 +1,70 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { DashboardPage } from './pages/DashboardPage';
 import { AlertsPage } from './pages/AlertsPage';
 import { StatisticsPage } from './pages/StatisticsPage';
 import { BinDetailPage } from './pages/BinDetailPage';
 import { ConfigPage } from './pages/ConfigPage';
-import { ALERT_HISTORY, BINS } from './data';
+import { CameraPage } from './pages/CameraPage';
+import { LoginPage } from './pages/LoginPage';
+import { useBins } from './hooks/useBins';
+import { useFullAlerts } from './hooks/useFullAlerts';
+import { useAuthUser } from './hooks/useAuthUser';
 import './index.css';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
-  const [bins, setBins] = useState(BINS);
-  const [alerts, setAlerts] = useState(ALERT_HISTORY);
 
-  const pendingAlertCount = alerts.filter(a => a.status === 'pending').length;
+  const { user, loading: authLoading, logout } = useAuthUser();
+  const { bins, loading: binsLoading, reload: reloadBins } = useBins();
+  const { alerts, resolveAlert, markAllResolved } = useFullAlerts(bins);
+
+  const pendingAlertCount = alerts.filter((a) => a.status === 'pending').length;
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(''), 2800);
   };
 
+  // Chờ Firebase xác định xong trạng thái đăng nhập trước khi quyết định
+  // hiện Login hay Dashboard — tránh nháy màn hình Login rồi bật lại Dashboard.
+  if (authLoading) {
+    return <div style={{ padding: 40 }}>Đang kiểm tra đăng nhập...</div>;
+  }
+
+  if (!user) {
+    return <LoginPage />;
+  }
+
+  if (binsLoading) {
+    return <div style={{ padding: 40 }}>Đang tải dữ liệu thiết bị...</div>;
+  }
+
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard':
-        return <DashboardPage bins={bins} alerts={alerts} setPage={setCurrentPage} showToast={showToast} />;
+        return <DashboardPage bins={bins} alerts={alerts} setPage={setCurrentPage} />;
       case 'bindetail':
         return <BinDetailPage bins={bins} />;
       case 'statistics':
-        return <StatisticsPage />;
+        return <StatisticsPage bins={bins} />;
       case 'alerts':
-        return <AlertsPage alerts={alerts} setAlerts={setAlerts} showToast={showToast} />;
+        return (
+          <AlertsPage
+            alerts={alerts}
+            resolveAlert={resolveAlert}
+            markAllResolved={markAllResolved}
+            showToast={showToast}
+          />
+        );
       case 'config':
-        return <ConfigPage showToast={showToast} />;
+        return <ConfigPage bins={bins} reloadBins={reloadBins} showToast={showToast} />;
+      case 'camera':
+        return <CameraPage />;
       default:
-        return <DashboardPage bins={bins} alerts={alerts} setPage={setCurrentPage} showToast={showToast} />;
+        return <DashboardPage bins={bins} alerts={alerts} setPage={setCurrentPage} />;
     }
   };
 
@@ -46,12 +75,14 @@ function App() {
         <span>{toastMsg}</span>
       </div>
 
-      <Sidebar 
-        currentPage={currentPage} 
-        setPage={setCurrentPage} 
-        isOpen={sidebarOpen} 
+      <Sidebar
+        currentPage={currentPage}
+        setPage={setCurrentPage}
+        isOpen={sidebarOpen}
         toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
         alertCount={pendingAlertCount}
+        userEmail={user.email ?? 'Admin'}
+        onLogout={logout}
       />
 
       <main className="main-canvas">

@@ -1,5 +1,8 @@
 # Thành phần 1 — Train và xuất model
 
+> **Đã thay thế:** tài liệu này mô tả pipeline v1 hai lớp. Pipeline chạy thật
+> hiện nay train trực tiếp ba lớp; xem `AI/README.md` và `AI/src/pipeline.py`.
+
 ## 1. Phạm vi
 
 Phần này chịu trách nhiệm:

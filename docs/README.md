@@ -1,5 +1,10 @@
 # Kế hoạch AI cho thùng rác 3 cổng
 
+> **Cập nhật 2026-07-14:** các tài liệu kế hoạch chi tiết bên dưới mô tả
+> pipeline v1 hai lớp + rejection và chỉ được giữ làm lịch sử thiết kế. Bản
+> triển khai hiện hành là classifier trực tiếp ba lớp `paper/plastic/organic`;
+> xem `AI/README.md`, `AI/artifacts/model_metadata.json` và `AI/esp32/README.md`.
+
 ## 1. Mục tiêu hệ thống
 
 Hệ thống có ba đầu ra vật lý:

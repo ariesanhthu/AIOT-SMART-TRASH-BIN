@@ -6,9 +6,11 @@ interface SidebarProps {
   isOpen: boolean;
   toggleSidebar: () => void;
   alertCount: number;
+  userEmail: string;      // MỚI
+  onLogout: () => void;   // MỚI
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentPage, setPage, isOpen, toggleSidebar, alertCount }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ currentPage, setPage, isOpen, toggleSidebar, alertCount, userEmail, onLogout }) => {
   return (
     <>
       <div id="mobile-overlay" className={`mobile-overlay ${isOpen ? 'show' : ''}`} onClick={toggleSidebar}></div>
@@ -47,6 +49,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, setPage, isOpen, 
               <span>Thống kê</span>
             </a>
 
+            <a href="#" onClick={(e) => { e.preventDefault(); setPage('camera'); toggleSidebar(); }}
+               className={`sidebar-link ${currentPage === 'camera' ? 'active' : ''}`}>
+              <i className="nav-icon fa-solid fa-video"></i>
+              <span>Camera</span>
+            </a>
+
             <a href="#" onClick={(e) => { e.preventDefault(); setPage('alerts'); toggleSidebar(); }}
                className={`sidebar-link ${currentPage === 'alerts' ? 'active' : ''}`}>
               <i className="nav-icon fa-solid fa-bell"></i>
@@ -73,12 +81,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, setPage, isOpen, 
 
         <div className="sidebar-user">
           <div className="flex items-center gap-3">
-            <div className="sidebar-user-avatar">A</div>
+            <div className="sidebar-user-avatar">{userEmail.charAt(0).toUpperCase()}</div>
             <div className="flex-1 min-w-0">
-              <p className="sidebar-user-name">Admin</p>
+              <p className="sidebar-user-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{userEmail}</p>
               <p className="sidebar-user-role">Quản trị hệ thống</p>
             </div>
-            <i className="fa-solid fa-gear" style={{ color: 'var(--outline)', fontSize: '14px', cursor: 'pointer' }}></i>
+            <i
+              className="fa-solid fa-arrow-right-from-bracket"
+              onClick={onLogout}
+              style={{ color: 'var(--outline)', fontSize: '14px', cursor: 'pointer' }}
+              title="Đăng xuất"
+            ></i>
           </div>
         </div>
       </aside>

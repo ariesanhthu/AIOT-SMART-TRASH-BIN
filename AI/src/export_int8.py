@@ -1,130 +1,271 @@
+"""Export TinyCNN v2 as a verified full-integer TFLite model."""
+
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import json
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import tensorflow as tf
 
 try:
-    from .dataset_cnn import load_dataset_splits, load_images, samples_from_class_dirs
+    from .config import (
+        DEFAULT_DATA_DIR,
+        DEFAULT_FLOAT_MODEL,
+        DEFAULT_INT8_MODEL,
+        DEFAULT_METADATA,
+        IMAGE_CHANNELS,
+        IMAGE_SIZE,
+        LABELS,
+        MAX_TFLITE_SIZE_BYTES,
+        resolve_input_path,
+        resolve_output_path,
+    )
+    from .dataset import (
+        load_dataset_index,
+        preprocess_file,
+        stratified_representative_samples,
+    )
+    from .metadata import (
+        read_json,
+        sha256_file,
+        utc_now_iso,
+        validate_metadata_contract,
+        verify_artifact_hash,
+        write_bytes_atomic,
+        write_json_atomic,
+    )
+    from .model import validate_model_contract
 except ImportError:
-    from dataset_cnn import load_dataset_splits, load_images, samples_from_class_dirs
+    from config import (  # type: ignore
+        DEFAULT_DATA_DIR,
+        DEFAULT_FLOAT_MODEL,
+        DEFAULT_INT8_MODEL,
+        DEFAULT_METADATA,
+        IMAGE_CHANNELS,
+        IMAGE_SIZE,
+        LABELS,
+        MAX_TFLITE_SIZE_BYTES,
+        resolve_input_path,
+        resolve_output_path,
+    )
+    from dataset import (  # type: ignore
+        load_dataset_index,
+        preprocess_file,
+        stratified_representative_samples,
+    )
+    from metadata import (  # type: ignore
+        read_json,
+        sha256_file,
+        utc_now_iso,
+        validate_metadata_contract,
+        verify_artifact_hash,
+        write_bytes_atomic,
+        write_json_atomic,
+    )
+    from model import validate_model_contract  # type: ignore
+
+
+ALLOWED_TFLITE_MICRO_OPS = frozenset(
+    {
+        "ADD",
+        "CONV_2D",
+        "DEPTHWISE_CONV_2D",
+        "FULLY_CONNECTED",
+        "MEAN",
+        "RESHAPE",
+    }
+)
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Export a full-integer TFLite model.")
-    parser.add_argument("--model", default="artifacts/model_float.keras")
-    parser.add_argument("--representative-data", default="trashnet/data")
-    parser.add_argument("--image-size", type=int, default=96)
-    parser.add_argument("--out", default="artifacts/model_int8.tflite")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--model", default=str(DEFAULT_FLOAT_MODEL))
+    parser.add_argument("--data", default=str(DEFAULT_DATA_DIR))
+    parser.add_argument("--metadata", default=str(DEFAULT_METADATA))
+    parser.add_argument("--out", default=str(DEFAULT_INT8_MODEL))
     parser.add_argument("--quantization-out", default=None)
-    parser.add_argument("--max-representative", type=int, default=200)
+    parser.add_argument("--representative-per-class", type=int, default=100)
+    parser.add_argument("--max-model-bytes", type=int, default=MAX_TFLITE_SIZE_BYTES)
     parser.add_argument("--seed", type=int, default=42)
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    model = tf.keras.models.load_model(args.model, compile=False)
-    representative = load_representative_images(
-        args.representative_data,
-        args.image_size,
-        args.max_representative,
-        args.seed,
+    if args.representative_per_class < 1 or args.max_model_bytes < 1:
+        raise ValueError("representative-per-class and max-model-bytes must be positive")
+
+    model_path = resolve_input_path(args.model)
+    data_path = resolve_input_path(args.data)
+    metadata_path = resolve_input_path(args.metadata)
+    out_path = resolve_output_path(args.out)
+    quantization_path = (
+        resolve_output_path(args.quantization_out)
+        if args.quantization_out
+        else out_path.parent / "quantization.json"
+    )
+
+    metadata = read_json(metadata_path)
+    validate_metadata_contract(metadata)
+    verify_artifact_hash(metadata, "float_model", model_path)
+
+    index = load_dataset_index(data_path)
+    expected_dataset_hash = metadata.get("dataset", {}).get("dataset_sha256")
+    if expected_dataset_hash != index.dataset_sha256:
+        raise ValueError(
+            "Training and representative datasets differ: "
+            f"metadata={expected_dataset_hash}, current={index.dataset_sha256}"
+        )
+
+    model = tf.keras.models.load_model(model_path, compile=False)
+    validate_model_contract(model)
+    representative = stratified_representative_samples(
+        index,
+        per_class=args.representative_per_class,
+        seed=args.seed,
     )
 
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
     converter.optimizations = [tf.lite.Optimize.DEFAULT]
-    converter.representative_dataset = representative_dataset(representative)
+    converter.representative_dataset = _representative_generator(representative)
     converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
     converter.inference_input_type = tf.int8
     converter.inference_output_type = tf.int8
+    tflite_bytes = converter.convert()
+    write_bytes_atomic(out_path, tflite_bytes)
 
-    tflite_model = converter.convert()
-    out_path = Path(args.out)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_bytes(tflite_model)
+    inspection = inspect_tflite_model(out_path, max_model_bytes=args.max_model_bytes)
+    inspection["representative_samples"] = {
+        "dataset_images": len(representative),
+        "converter_samples": len(representative) + 2,
+        "per_class": dict(Counter(sample.label for sample in representative)),
+        "range_anchors": [0.0, 1.0],
+        "split": "train",
+        "dataset_sha256": index.dataset_sha256,
+        "seed": args.seed,
+    }
+    write_json_atomic(quantization_path, inspection)
 
-    quantization_path = (
-        Path(args.quantization_out)
-        if args.quantization_out
-        else out_path.parent / "quantization.json"
-    )
-    quantization = inspect_quantization(out_path)
-    quantization["model_size_bytes"] = out_path.stat().st_size
-    quantization_path.write_text(
-        json.dumps(quantization, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
+    metadata["exported_utc"] = utc_now_iso()
+    metadata["input"]["tflite_dtype"] = inspection["input"]["dtype"]
+    metadata["input"]["tflite_name"] = inspection["input"]["name"]
+    metadata["input"]["quantization"] = inspection["input"]["quantization"]
+    metadata["output"]["tflite_dtype"] = inspection["output"]["dtype"]
+    metadata["output"]["tflite_name"] = inspection["output"]["name"]
+    metadata["output"]["quantization"] = inspection["output"]["quantization"]
+    metadata["tflite"] = {
+        "operators": inspection["operators"],
+        "full_integer": inspection["full_integer"],
+        "max_model_bytes": args.max_model_bytes,
+    }
+    metadata["artifacts"]["int8_model"] = {
+        "file": out_path.name,
+        "size_bytes": out_path.stat().st_size,
+        "sha256": sha256_file(out_path),
+    }
+    write_json_atomic(metadata_path, metadata)
 
-    print(f"Saved INT8 model: {out_path}")
-    print(f"Saved quantization metadata: {quantization_path}")
-    print(json.dumps(quantization, indent=2))
-
-
-def load_representative_images(
-    data_path: str,
-    image_size: int,
-    max_representative: int,
-    seed: int,
-) -> np.ndarray:
-    path = Path(data_path)
-    try:
-        splits = load_dataset_splits(path, seed=seed)
-        samples = splits.train_known
-    except Exception:
-        samples = samples_from_class_dirs(
-            path, split="representative", include_known=True, include_other=False
-        )
-
-    if not samples:
-        raise RuntimeError("Representative dataset is empty")
-
-    rng = np.random.default_rng(seed)
-    if len(samples) > max_representative:
-        indices = rng.choice(len(samples), size=max_representative, replace=False)
-        samples = [samples[int(index)] for index in indices]
-
-    x_rep, _, _ = load_images(samples, image_size)
-    return x_rep.astype(np.float32)
+    print(json.dumps(inspection, indent=2, ensure_ascii=False))
+    print(f"Saved verified INT8 model: {out_path}")
 
 
-def representative_dataset(images: np.ndarray):
+def _representative_generator(samples):
     def generator():
-        for image in images:
-            yield [image[np.newaxis, ...].astype(np.float32)]
+        # Anchor the known [0, 1] preprocessing range. This makes the input
+        # contract exactly scale=1/255 and zero_point=-128 for the ESP32 LUT.
+        yield [np.zeros((1, IMAGE_SIZE, IMAGE_SIZE, IMAGE_CHANNELS), dtype=np.float32)]
+        yield [np.ones((1, IMAGE_SIZE, IMAGE_SIZE, IMAGE_CHANNELS), dtype=np.float32)]
+        for sample in samples:
+            image = preprocess_file(sample.path)
+            yield [image[np.newaxis, ...].astype(np.float32, copy=False)]
 
     return generator
 
 
-def inspect_quantization(model_path: Path) -> dict:
-    interpreter = tf.lite.Interpreter(model_path=str(model_path))
-    interpreter.allocate_tensors()
-    input_detail = interpreter.get_input_details()[0]
-    output_details = interpreter.get_output_details()
-
-    outputs = []
-    for output in output_details:
-        scale, zero_point = output["quantization"]
-        outputs.append(
-            {
-                "name": output["name"],
-                "shape": [int(value) for value in output["shape"]],
-                "dtype": np.dtype(output["dtype"]).name,
-                "scale": float(scale),
-                "zero_point": int(zero_point),
-            }
+def inspect_tflite_model(
+    model_path: str | Path,
+    *,
+    max_model_bytes: int = MAX_TFLITE_SIZE_BYTES,
+) -> dict[str, Any]:
+    path = Path(model_path)
+    size_bytes = path.stat().st_size
+    if size_bytes > max_model_bytes:
+        raise ValueError(
+            f"TFLite model is {size_bytes} bytes; limit is {max_model_bytes} bytes"
         )
 
+    interpreter = tf.lite.Interpreter(model_path=str(path))
+    interpreter.allocate_tensors()
+    inputs = interpreter.get_input_details()
+    outputs = interpreter.get_output_details()
+    if len(inputs) != 1 or len(outputs) != 1:
+        raise ValueError(
+            f"Deployment model must have one input and one output; got {len(inputs)}/{len(outputs)}"
+        )
+    input_detail, output_detail = inputs[0], outputs[0]
+    expected_input = [1, IMAGE_SIZE, IMAGE_SIZE, IMAGE_CHANNELS]
+    expected_output = [1, len(LABELS)]
+    if input_detail["shape"].tolist() != expected_input:
+        raise ValueError(f"Unexpected TFLite input shape: {input_detail['shape'].tolist()}")
+    if output_detail["shape"].tolist() != expected_output:
+        raise ValueError(f"Unexpected TFLite output shape: {output_detail['shape'].tolist()}")
+    if input_detail["dtype"] != np.int8 or output_detail["dtype"] != np.int8:
+        raise ValueError("TFLite input and output must both be int8")
     input_scale, input_zero_point = input_detail["quantization"]
+    if not np.isclose(input_scale, 1.0 / 255.0, rtol=0.0, atol=1e-6):
+        raise ValueError(
+            f"Input quantization scale must be 1/255 for firmware, got {input_scale}"
+        )
+    if int(input_zero_point) != -128:
+        raise ValueError(
+            f"Input zero_point must be -128 for firmware, got {input_zero_point}"
+        )
+
+    float_tensors = [
+        detail["name"]
+        for detail in interpreter.get_tensor_details()
+        if np.issubdtype(np.dtype(detail["dtype"]), np.floating)
+    ]
+    if float_tensors:
+        raise ValueError(f"Full-integer gate failed; float tensors: {float_tensors}")
+
+    get_ops = getattr(interpreter, "_get_ops_details", None)
+    if get_ops is None:
+        raise RuntimeError("TensorFlow Lite interpreter cannot expose operator details")
+    operators = [
+        detail["op_name"] for detail in get_ops() if detail["op_name"] != "DELEGATE"
+    ]
+    unsupported = sorted(set(operators) - ALLOWED_TFLITE_MICRO_OPS)
+    if unsupported:
+        raise ValueError(f"Unsupported TFLite Micro operators: {unsupported}")
+
     return {
-        "input_name": input_detail["name"],
-        "input_dtype": np.dtype(input_detail["dtype"]).name,
-        "input_scale": float(input_scale),
-        "input_zero_point": int(input_zero_point),
-        "input_shape": [int(value) for value in input_detail["shape"]],
-        "outputs": outputs,
+        "model_size_bytes": size_bytes,
+        "sha256": sha256_file(path),
+        "full_integer": True,
+        "input": _tensor_summary(input_detail),
+        "output": _tensor_summary(output_detail),
+        "operators": operators,
+        "unique_operators": sorted(set(operators)),
+        "unsupported_operators": unsupported,
+        "float_tensors": float_tensors,
+    }
+
+
+def _tensor_summary(detail: dict[str, Any]) -> dict[str, Any]:
+    scale, zero_point = detail["quantization"]
+    return {
+        "name": detail["name"],
+        "shape": [int(value) for value in detail["shape"]],
+        "dtype": np.dtype(detail["dtype"]).name,
+        "quantization": {
+            "scale": float(scale),
+            "zero_point": int(zero_point),
+        },
     }
 
 

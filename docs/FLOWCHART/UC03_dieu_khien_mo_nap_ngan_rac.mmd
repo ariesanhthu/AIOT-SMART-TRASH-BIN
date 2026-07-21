@@ -1,0 +1,42 @@
+---
+config:
+  layout: fixed
+---
+flowchart TB
+    start(["UC3: Điều khiển mở nắp ngăn chứa rác phù hợp"]) --> input[/"Input: Mã loại rác từ UC2<br>Trạng thái đầy của các ngăn"/]
+    input --> controller["Device: Mạch điều khiển<br>tiếp nhận mã phân loại"]
+    controller --> map["Đối chiếu mã loại rác<br>với vị trí ngăn chứa"]
+    map --> full{"Ngăn mục tiêu<br>đã đầy?"}
+    full -- Có --> cancel["Hủy lệnh mở nắp<br>để tránh rác tràn"]
+    cancel --> fullOut[/"Output thay thế:<br>Đèn LED nhấp nháy bảo hiệu thùng đầy từ chối nhận rác"/]
+    fullOut --> finish(["Kết thúc UC3"])
+    full -- Không --> command["Mạch điều khiển phát lệnh<br>đến servo của ngăn đã chọn"]
+    command --> servoOpen["Device: Servo quay<br>mở đúng nắp ngăn rác"]
+    servoOpen --> student["Học sinh bỏ rác<br>vào ngăn đã mở"]
+    student --> timer["Chờ khoảng thời gian<br>an toàn đã cấu hình"]
+    timer --> servoClose["Device: Servo quay về<br>vị trí đóng nắp"]
+    servoClose --> output[/"Output chính: Rác nằm đúng ngăn<br>Nắp đã đóng an toàn"/]
+    output --> finish
+
+     start:::terminal
+     input:::input
+     controller:::device
+     map:::process
+     full:::decision
+     cancel:::warning
+     fullOut:::output
+     finish:::terminal
+     command:::process
+     servoOpen:::device
+     student:::actor
+     timer:::process
+     servoClose:::device
+     output:::output
+    classDef actor fill:#fff3cd,stroke:#b58105,color:#3d2b00
+    classDef device fill:#dbeafe,stroke:#2563eb,color:#102a56
+    classDef input fill:#fef9c3,stroke:#ca8a04,color:#422006
+    classDef process fill:#f3e8ff,stroke:#9333ea,color:#3b0764
+    classDef decision fill:#ffedd5,stroke:#ea580c,color:#431407
+    classDef output fill:#dcfce7,stroke:#16a34a,color:#052e16
+    classDef warning fill:#fee2e2,stroke:#dc2626,color:#450a0a
+    classDef terminal fill:#e5e7eb,stroke:#4b5563,color:#111827
