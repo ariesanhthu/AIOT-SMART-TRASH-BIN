@@ -17,13 +17,13 @@ inline constexpr int kClassCount = 3;
 
 inline constexpr float kExpectedInputScale = 1.0F / 255.0F;
 inline constexpr std::int32_t kExpectedInputZeroPoint = -128;
-inline constexpr float kExpectedOutputScale = 0.042801760137081146F;
-inline constexpr std::int32_t kExpectedOutputZeroPoint = -11;
+inline constexpr float kExpectedOutputScale = 0.05487526208162308F;
+inline constexpr std::int32_t kExpectedOutputZeroPoint = -27;
 inline constexpr float kQuantizationTolerance = 1.0e-7F;
 
-inline constexpr int kExpectedModelBytes = 31584;
+inline constexpr int kExpectedModelBytes = 62496;
 inline constexpr char kExpectedModelSha256[] =
-    "8a43d85ca2f2e38779d8e3b942e077687684d1a2175315918ea1c3569d0a7114";
+    "5e543adfcd64a5627015e0e770fa8b1638d1febaefea2f105fb383707019826a";
 
 // This scaffold expects the Dense head to export logits. The firmware applies
 // a stable softmax to only three values. Change to kProbabilities only if the

@@ -1,6 +1,6 @@
 # ESP-TRASH - ESP32-CAM AI Thinker + Arduino Nano
 
-Firmware chạy model INT8 cục bộ để phân loại `paper`, `plastic`, `organic`.
+Firmware chạy model TinyCNN V3 full INT8 cục bộ để phân loại `paper`, `plastic`, `organic`.
 Nano gửi lệnh chụp, ESP32-CAM trả kết quả qua UART ngay sau inference, sau đó
 gửi chính ảnh đã nhận diện và metadata AI về FastAPI qua Wi-Fi.
 
@@ -83,8 +83,11 @@ Nano nhận kết quả trước khi HTTP upload bắt đầu. Server trả lỗ
 
 ## Pipeline AI
 
+- Model nguồn: `AI/V3/artifacts/model_int8.tflite`, 62,496 byte, SHA-256
+  `5e543adfcd64a5627015e0e770fa8b1638d1febaefea2f105fb383707019826a`.
 - Input INT8 `[1, 96, 96, 3]`, RGB, scale `1/255`, zero point `-128`.
-- Output INT8 `[1, 3]`: `paper`, `plastic`, `organic`.
+- Output INT8 `[1, 3]`, scale `0.05487526208162308`, zero point `-27`:
+  `paper`, `plastic`, `organic`.
 - QVGA RGB565 -> center crop -> nearest-neighbor 96 x 96 -> quantize trực tiếp.
 - TFLite Micro/ESP-NN, dequantize logits và stable-softmax.
 - Mapping UART: `plastic=1`, `paper=2`, `organic=3`.

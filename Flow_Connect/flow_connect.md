@@ -6,11 +6,11 @@
 
 **Gửi đến ESP32-CAM — Kích hoạt nhận diện AI**
 - Mục đích: Báo có vật thể xuất hiện tại vùng chờ để bắt đầu chụp ảnh và phân loại.
-- Dữ liệu gửi (UART): `<T:1>` — (Trigger)
+- Dữ liệu gửi (UART): `T 1` — (Trigger)
 
 **Gửi đến ESP32-CAM — Báo cáo dung tích thực tế của 3 ngăn riêng biệt**
 - Mục đích: Gửi dữ liệu đo thời gian thực của cả 3 ngăn (Nhựa, Giấy, Hữu cơ) để ESP32-CAM đóng gói chính xác vào cấu trúc bản đồ (Map) trên Firestore.
-- Dữ liệu gửi (UART): `<F:20,80,65>` — (Theo thứ tự cố định: Nhựa = 20%, Giấy = 80%, Hữu cơ = 65%)
+- Dữ liệu gửi (UART): `F 20 80 65 ` — (Theo thứ tự cố định: Nhựa = 20%, Giấy = 80%, Hữu cơ = 65%)
 
 - - -
 
@@ -20,10 +20,10 @@
 
 | Mã lệnh | Ý nghĩa | Hành động |
 |:---:|:---|:---|
-| `<C:1>` | AI phân loại là Nhựa | Mở ngăn Nhựa |
-| `<C:2>` | AI phân loại là Giấy | Mở ngăn Giấy |
-| `<C:3>` | AI phân loại là Hữu cơ | Mở ngăn Hữu cơ |
-| `<C:0>` / `<số khác trên>` | Lỗi thiết bị / Thùng đầy từ chối nhận | Bật led đỏ |
+| `C 1` | AI phân loại là Nhựa | Mở ngăn Nhựa |
+| `C 2` | AI phân loại là Giấy | Mở ngăn Giấy |
+| `C 3` | AI phân loại là Hữu cơ | Mở ngăn Hữu cơ |
+| `C 0` / `<số khác trên>` | Lỗi thiết bị / Thùng đầy từ chối nhận | Bật led đỏ |
 
 ---
 
@@ -36,10 +36,10 @@
 - - -
 
 **Nhận từ Arduino — Lệnh Trigger / Dữ liệu khoảng cách cảm biến**
-- Dữ liệu nhận (UART): `<T:1>` hoặc `<F:nhua,giay,huu_co>`
+- Dữ liệu nhận (UART): `T 1` hoặc `F nhua giay huu_co`
 
 **Gửi đến Arduino — Trả kết quả phân loại tức thời**
-- Dữ liệu gửi (UART): `<C:X>` (X nhận các giá trị từ 0 đến 4)
+- Dữ liệu gửi (UART): `C X` (X nhận các giá trị từ 0 đến 4)
 
 - - -
 
