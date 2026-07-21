@@ -31,8 +31,8 @@ public class StatsController {
     }
 
     @GetMapping("/summary")
-    public DailyStatSummaryResponse getSummary(@RequestParam(required = false) String date) {
-        return statsService.getSummary(date);
+    public DailyStatSummaryResponse getSummary(@RequestParam(defaultValue = "1") int days) {
+        return statsService.getSummary(days);
     }
 
     @GetMapping("/ranking")

@@ -10,6 +10,7 @@ import { LoginPage } from './pages/LoginPage';
 import { useBins } from './hooks/useBins';
 import { useFullAlerts } from './hooks/useFullAlerts';
 import { useAuthUser } from './hooks/useAuthUser';
+import { SupportPage } from './pages/SupportPage';
 import './index.css';
 
 function App() {
@@ -63,6 +64,8 @@ function App() {
         return <ConfigPage bins={bins} reloadBins={reloadBins} showToast={showToast} />;
       case 'camera':
         return <CameraPage />;
+      case 'support':
+        return <SupportPage />;
       default:
         return <DashboardPage bins={bins} alerts={alerts} setPage={setCurrentPage} />;
     }

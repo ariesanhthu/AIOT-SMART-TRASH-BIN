@@ -66,17 +66,17 @@ export const ConfigPage: React.FC<Props> = ({ bins, reloadBins, showToast }) => 
         maintenanceMode,
       });
       reloadBins(false);
-      showToast('Da luu nguong canh bao xuong backend!');
+      showToast('Đã lưu ngưỡng cảnh báo xuống backend!');
     } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Khong the luu cau hinh');
+      showToast(e instanceof Error ? e.message : 'Không thể lưu cấu hình');
     } finally {
       setSavingThreshold(false);
     }
   };
 
   const handleSave = (type: string) => {
-    if (type === 'ai') showToast('Cau hinh AI dang la thong tin tham khao trong prototype.');
-    if (type === 'network') showToast('Cau hinh mang/MQTT dang la placeholder cho huong nang cap.');
+    if (type === 'ai') showToast('Cấu hình AI đang là thông tin tham khảo trong prototype.');
+    if (type === 'network') showToast('Cấu hình mạng/MQTT đang là placeholder cho hướng nâng cấp.');
   };
 
   if (bins.length === 0) {
@@ -84,8 +84,8 @@ export const ConfigPage: React.FC<Props> = ({ bins, reloadBins, showToast }) => 
       <section className="page-section">
         <div className="page-header">
           <div>
-            <h1>Cau hinh he thong</h1>
-            <p className="subtitle body-md">Chua co thiet bi nao de cau hinh.</p>
+            <h1>Cấu hình hệ thống</h1>
+            <p className="subtitle body-md">Chưa có thiết bị nào để cấu hình.</p>
           </div>
         </div>
       </section>
@@ -96,8 +96,8 @@ export const ConfigPage: React.FC<Props> = ({ bins, reloadBins, showToast }) => 
     <section className="page-section">
       <div className="page-header">
         <div>
-          <h1>Cau hinh he thong</h1>
-          <p className="subtitle body-md">Quan ly nguong AI va nguong day cho tung thung / ngan</p>
+          <h1>Cấu hình hệ thống</h1>
+          <p className="subtitle body-md">Quản lý ngưỡng AI và ngưỡng đầy cho từng thùng/ngăn</p>
         </div>
       </div>
 
@@ -108,20 +108,25 @@ export const ConfigPage: React.FC<Props> = ({ bins, reloadBins, showToast }) => 
               <i className="fa-solid fa-robot" style={{ color: '#9333ea' }}></i>
             </div>
             <div>
-              <h2 className="title-sm" style={{ color: 'var(--on-surface)' }}>Nguong tin cay AI</h2>
-              <p className="body-md" style={{ color: 'var(--outline)', fontSize: '12px' }}>Thong tin tham khao, chua ghi DB trong prototype</p>
+              <h2 className="title-sm" style={{ color: 'var(--on-surface)' }}>Ngưỡng tin cậy AI</h2>
+              <p className="body-md" style={{ color: 'var(--outline)', fontSize: '12px' }}>Thông tin tham khảo, chưa ghi DB trong prototype</p>
             </div>
           </div>
 
           <div className="space-y-6">
-            <RangeField label="Nguong tong quat" value={globalConf} onChange={setGlobalConf} badgeClass="badge-success" />
-            <RangeField label="Huu co (Organic)" value={orgConf} onChange={setOrgConf} badgeClass="badge-success" />
-            <RangeField label="Giay (Paper)" value={paperConf} onChange={setPaperConf} badgeClass="badge-neutral" />
-            <RangeField label="Nhua (Plastic)" value={plasticConf} onChange={setPlasticConf} badgeClass="badge-info" />
+            <div style={{ padding: '8px 12px', background: '#f3e8ff', borderRadius: 'var(--radius)', marginBottom: '16px', display: 'inline-block' }}>
+              <span className="badge badge-pill" style={{ background: '#9333ea', color: '#fff', fontWeight: 600, fontSize: '11px' }}>
+                <i className="fa-solid fa-clock" style={{ marginRight: '4px' }}></i> Sắp ra mắt
+              </span>
+            </div>
+            <RangeField label="Ngưỡng tổng quát" value={globalConf} onChange={setGlobalConf} badgeClass="badge-success" />
+            <RangeField label="Hữu cơ (Organic)" value={orgConf} onChange={setOrgConf} badgeClass="badge-success" />
+            <RangeField label="Giấy (Paper)" value={paperConf} onChange={setPaperConf} badgeClass="badge-neutral" />
+            <RangeField label="Nhựa (Plastic)" value={plasticConf} onChange={setPlasticConf} badgeClass="badge-info" />
           </div>
 
           <button onClick={() => handleSave('ai')} className="btn btn-primary w-full mt-6" style={{ justifyContent: 'center' }}>
-            <i className="fa-solid fa-circle-info"></i> Ghi chu cau hinh AI
+            <i className="fa-solid fa-circle-info"></i> Ghi chú cấu hình AI
           </button>
         </div>
 
@@ -131,8 +136,8 @@ export const ConfigPage: React.FC<Props> = ({ bins, reloadBins, showToast }) => 
               <i className="fa-solid fa-gauge" style={{ color: '#d97706' }}></i>
             </div>
             <div>
-              <h2 className="title-sm" style={{ color: 'var(--on-surface)' }}>Nguong bao day</h2>
-              <p className="body-md" style={{ color: 'var(--outline)', fontSize: '12px' }}>Luu that qua PATCH /api/devices/id/config</p>
+              <h2 className="title-sm" style={{ color: 'var(--on-surface)' }}>Ngưỡng báo đầy</h2>
+              <p className="body-md" style={{ color: 'var(--outline)', fontSize: '12px' }}>Cập nhật ngưỡng báo đầy cho từng loại rác của thiết bị</p>
             </div>
           </div>
 
@@ -150,7 +155,7 @@ export const ConfigPage: React.FC<Props> = ({ bins, reloadBins, showToast }) => 
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: wt.color, display: 'inline-block' }}></span>
-                      <span className="body-md" style={{ fontWeight: 600, color: 'var(--on-surface)' }}>Ngan {wt.label}</span>
+                      <span className="body-md" style={{ fontWeight: 600, color: 'var(--on-surface)' }}>Ngăn {wt.label}</span>
                     </div>
                     <span className={`badge badge-pill ${wt.bgClass}`} style={{ fontWeight: 700 }}>{thresholds[key]}%</span>
                   </div>
@@ -162,11 +167,11 @@ export const ConfigPage: React.FC<Props> = ({ bins, reloadBins, showToast }) => 
 
           <label className="flex items-center gap-2 mt-5 body-md" style={{ color: 'var(--on-surface)' }}>
             <input type="checkbox" checked={maintenanceMode} onChange={(e) => setMaintenanceMode(e.target.checked)} />
-            Bat che do bao tri cho thiet bi nay
+            Bật chế độ bảo trì cho thiết bị này
           </label>
 
           <button onClick={saveThresholds} disabled={savingThreshold} className="btn w-full mt-6" style={{ justifyContent: 'center', background: '#d97706', color: '#fff' }}>
-            <i className="fa-solid fa-floppy-disk"></i> {savingThreshold ? 'Dang luu...' : 'Luu cau hinh thiet bi'}
+            <i className="fa-solid fa-floppy-disk"></i> {savingThreshold ? 'Đang lưu...' : 'Lưu cấu hình thiết bị'}
           </button>
         </div>
       </div>
@@ -178,20 +183,25 @@ export const ConfigPage: React.FC<Props> = ({ bins, reloadBins, showToast }) => 
               <i className="fa-solid fa-network-wired" style={{ color: '#3b82f6' }}></i>
             </div>
             <div>
-              <h2 className="title-sm" style={{ color: 'var(--on-surface)' }}>Ket noi & mang</h2>
-              <p className="body-md" style={{ color: 'var(--outline)', fontSize: '12px' }}>Placeholder cho huong nang cap MQTT</p>
+              <h2 className="title-sm" style={{ color: 'var(--on-surface)' }}>Kết nối & mạng</h2>
+              <p className="body-md" style={{ color: 'var(--outline)', fontSize: '12px' }}>Placeholder cho hướng nâng cấp MQTT</p>
             </div>
           </div>
           <div className="space-y-4">
+            <div style={{ padding: '8px 12px', background: '#dbeafe', borderRadius: 'var(--radius)', marginBottom: '16px', display: 'inline-block' }}>
+              <span className="badge badge-pill" style={{ background: '#3b82f6', color: '#fff', fontWeight: 600, fontSize: '11px' }}>
+                <i className="fa-solid fa-clock" style={{ marginRight: '4px' }}></i> Sắp ra mắt
+              </span>
+            </div>
             <InputField label="MQTT Broker URL" value={mqttUrl} onChange={setMqttUrl} />
             <InputField label="Topic prefix" value={topic} onChange={setTopic} />
             <div>
-              <label className="label-caps" style={{ color: 'var(--outline)', display: 'block', marginBottom: '6px' }}>Telemetry interval (giay)</label>
+              <label className="label-caps" style={{ color: 'var(--outline)', display: 'block', marginBottom: '6px' }}>Telemetry interval (giây)</label>
               <input type="number" value={interval} onChange={(e) => setIntervalVal(Number(e.target.value))} min={5} max={300} className="input-field" />
             </div>
           </div>
           <button onClick={() => handleSave('network')} className="btn w-full mt-6" style={{ justifyContent: 'center', background: '#3b82f6', color: '#fff', border: 'none' }}>
-            <i className="fa-solid fa-circle-info"></i> Ghi chu cau hinh mang
+            <i className="fa-solid fa-circle-info"></i> Ghi chú cấu hình mạng
           </button>
         </div>
 
@@ -201,15 +211,20 @@ export const ConfigPage: React.FC<Props> = ({ bins, reloadBins, showToast }) => 
               <i className="fa-solid fa-brain" style={{ color: '#0d9488' }}></i>
             </div>
             <div>
-              <h2 className="title-sm" style={{ color: 'var(--on-surface)' }}>Quan ly model AI</h2>
-              <p className="body-md" style={{ color: 'var(--outline)', fontSize: '12px' }}>Version dang chay lay tu thiet bi, danh sach duoi day la minh hoa</p>
+              <h2 className="title-sm" style={{ color: 'var(--on-surface)' }}>Quản lý model AI</h2>
+              <p className="body-md" style={{ color: 'var(--outline)', fontSize: '12px' }}>Version đang chạy lấy từ thiết bị, danh sách dưới đây là minh họa</p>
             </div>
           </div>
 
           <div className="space-y-3">
+            <div style={{ padding: '8px 12px', background: '#ccfbf1', borderRadius: 'var(--radius)', marginBottom: '16px', display: 'inline-block' }}>
+              <span className="badge badge-pill" style={{ background: '#0d9488', color: '#fff', fontWeight: 600, fontSize: '11px' }}>
+                <i className="fa-solid fa-clock" style={{ marginRight: '4px' }}></i> Sắp ra mắt
+              </span>
+            </div>
             <div style={{ padding: '12px', background: 'var(--primary-fixed)', borderRadius: 'var(--radius-lg)', border: '1px solid rgba(31,122,77,0.2)' }}>
               <p className="body-md" style={{ fontWeight: 600, color: 'var(--on-surface)' }}>{currentBin?.id}: {bins.find((bin) => bin.id === currentBin?.id)?.name}</p>
-              <p style={{ fontSize: '12px', color: 'var(--outline)' }}>Model dang bao cao qua API thiet bi</p>
+              <p style={{ fontSize: '12px', color: 'var(--outline)' }}>Model đang báo cáo qua API thiết bị</p>
             </div>
             {MODEL_VERSION_LIST.map((model) => (
               <div key={model.version} style={{ padding: '12px', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-lg)', border: '1px solid #E3E8E1' }}>

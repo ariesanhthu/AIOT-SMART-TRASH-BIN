@@ -4,21 +4,17 @@ import type { DailyChartData } from '../types/api';
 
 const EMPTY: DailyChartData = { labels: [], organic: [], paper: [], plastic: [] };
 
-export function useDailyStats(deviceId: string | null, days = 7) {
+export function useDailyStats(deviceId: string | null, from: string, to: string) {
   const [data, setData] = useState<DailyChartData>(EMPTY);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!deviceId) return;
+    if (!deviceId || !from || !to) return;
     let cancelled = false;
-    // Load daily stats for the given deviceId and date range với to là ngày hôm nay, from là (days - 1) ngày trước đó. Ví dụ days=7 thì from là 6 ngày trước, to là hôm nay.
+
     const load = (showLoading: boolean) => {
       if (showLoading) setLoading(true);
-      const to = new Date();
-      const from = new Date();
-      from.setDate(to.getDate() - (days - 1));
-
-      fetchDailyStats(deviceId, formatDate(from), formatDate(to))
+      fetchDailyStats(deviceId, from, to)
         .then((stats) => {
           if (!cancelled) setData(toDailyChartData(stats));
         })
@@ -33,11 +29,7 @@ export function useDailyStats(deviceId: string | null, days = 7) {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [deviceId, days]);
+  }, [deviceId, from, to]);
 
   return { data, loading };
-}
-
-function formatDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
 }
