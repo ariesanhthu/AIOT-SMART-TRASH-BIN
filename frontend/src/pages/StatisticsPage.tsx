@@ -5,14 +5,26 @@ import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement
 import { useDailyStats } from '../hooks/useDailyStats';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement);
-// Page cho xem theo thống kê theo thùng từng ngày nhưng chưa có chỗ để chọn from/to date range, chỉ hiển thị 7 ngày gần nhất. (Chọn ngày range sẽ thêm sau.)
+
 interface Props {
   bins: Bin[];
 }
 
+function formatDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function defaultFrom(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 6); // mặc định 7 ngày gần nhất
+  return formatDate(d);
+}
+
 export const StatisticsPage: React.FC<Props> = ({ bins }) => {
   const [selectedBinId, setSelectedBinId] = useState(bins[0]?.id ?? '');
-  const { data, loading } = useDailyStats(selectedBinId || null, 7);
+  const [fromDate, setFromDate] = useState(defaultFrom());
+  const [toDate, setToDate] = useState(formatDate(new Date()));
+  const { data, loading } = useDailyStats(selectedBinId || null, fromDate, toDate);
 
   const totOrg = data.organic.reduce((a, b) => a + b, 0);
   const totRec = data.paper.reduce((a, b) => a + b, 0);
@@ -36,6 +48,8 @@ export const StatisticsPage: React.FC<Props> = ({ bins }) => {
     ]
   };
 
+  const invalidRange = fromDate > toDate;
+
   return (
     <section className="page-section">
       <div className="page-header">
@@ -43,14 +57,36 @@ export const StatisticsPage: React.FC<Props> = ({ bins }) => {
           <h1>Báo cáo Thống kê</h1>
           <p className="subtitle body-md">Phân tích xu hướng và hiệu quả phân loại rác</p>
         </div>
-        <select value={selectedBinId} onChange={(e) => setSelectedBinId(e.target.value)} className="input-field" style={{ width: 'auto' }}>
-          {bins.map(b => (
-            <option key={b.id} value={b.id}>{b.name} — {b.location}</option>
-          ))}
-        </select>
+        <div className="flex items-center gap-3">
+          <input
+            type="date"
+            value={fromDate}
+            max={toDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            className="input-field"
+            style={{ width: 'auto' }}
+          />
+          <span style={{ color: 'var(--outline)' }}>đến</span>
+          <input
+            type="date"
+            value={toDate}
+            min={fromDate}
+            max={formatDate(new Date())}
+            onChange={(e) => setToDate(e.target.value)}
+            className="input-field"
+            style={{ width: 'auto' }}
+          />
+          <select value={selectedBinId} onChange={(e) => setSelectedBinId(e.target.value)} className="input-field" style={{ width: 'auto' }}>
+            {bins.map(b => (
+              <option key={b.id} value={b.id}>{b.name} — {b.location}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      {loading ? (
+      {invalidRange ? (
+        <p style={{ color: 'var(--error)' }}>Ngày bắt đầu phải trước ngày kết thúc.</p>
+      ) : loading ? (
         <p>Đang tải thống kê...</p>
       ) : (
         <>
