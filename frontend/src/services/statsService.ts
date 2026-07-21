@@ -15,9 +15,8 @@ export function toDailyChartData(stats: DailyStatDto[]): DailyChartData {
   };
 }
 
-export async function fetchDailyStatsSummary(date?: string): Promise<DailyStatSummaryDto> {
-  const query = date ? `?date=${date}` : '';
-  return apiClient.get<DailyStatSummaryDto>(`/api/daily-stats/summary${query}`);
+export async function fetchDailyStatsSummary(days = 1): Promise<DailyStatSummaryDto> {
+  return apiClient.get<DailyStatSummaryDto>(`/api/daily-stats/summary?days=${days}`);
 }
 
 export async function fetchRanking(days = 7): Promise<DeviceRankDto[]> {

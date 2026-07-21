@@ -21,7 +21,7 @@ export interface DeviceResponseDto {
 export interface EventResponseDto {
   id: string;
   eventType: string;
-  wasteType: WasteTypeKey | null;
+  wasteType: WasteTypeKey | 'REJECTED' | null;
   targetCompartment: string | null;
   aiConfidence: number | null;
   fillPercent: Partial<Record<WasteTypeKey, number>> | null;
@@ -67,9 +67,8 @@ export interface BinThresholds {
 
 export interface ClassifyHistoryRow {
   time: string;
-  type: WasteTypeKey;
+  wasteType: WasteTypeKey | 'REJECTED' | null;
   compartment: string;
-  accuracy: number;
   result: 'success' | 'rejected';
 }
 
