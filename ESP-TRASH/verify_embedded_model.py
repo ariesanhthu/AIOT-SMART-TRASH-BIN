@@ -1,4 +1,4 @@
-"""Verify that ESP-TRASH embeds the exact current AI/V2 INT8 model."""
+"""Verify that ESP-TRASH embeds the exact current AI/V3 INT8 model."""
 
 from __future__ import annotations
 
@@ -10,12 +10,12 @@ import re
 
 ESP_DIR = Path(__file__).resolve().parent
 REPOSITORY_DIR = ESP_DIR.parent
-V2_ARTIFACTS = REPOSITORY_DIR / "AI" / "V2" / "artifacts"
+V3_ARTIFACTS = REPOSITORY_DIR / "AI" / "V3" / "artifacts"
 
 
 def main() -> None:
-    model_path = V2_ARTIFACTS / "model_int8.tflite"
-    metadata_path = V2_ARTIFACTS / "model_metadata.json"
+    model_path = V3_ARTIFACTS / "model_int8.tflite"
+    metadata_path = V3_ARTIFACTS / "model_metadata.json"
     source_path = ESP_DIR / "model_data.cpp"
     contract_path = ESP_DIR / "model_contract.h"
 
@@ -24,9 +24,9 @@ def main() -> None:
     expected_hash = hashlib.sha256(model).hexdigest()
     metadata_model = metadata["artifacts"]["int8_model"]
     if metadata_model["size_bytes"] != len(model):
-        raise RuntimeError("V2 metadata model size does not match the TFLite file")
+        raise RuntimeError("V3 metadata model size does not match the TFLite file")
     if metadata_model["sha256"] != expected_hash:
-        raise RuntimeError("V2 metadata model hash does not match the TFLite file")
+        raise RuntimeError("V3 metadata model hash does not match the TFLite file")
 
     source = source_path.read_text(encoding="utf-8")
     array_match = re.search(
@@ -46,7 +46,7 @@ def main() -> None:
         r'g_model_sha256\[65\]\s*=\s*"([0-9a-f]{64})"\s*;',
     )
     if embedded != model:
-        raise RuntimeError("Embedded byte array differs from AI/V2 model_int8.tflite")
+        raise RuntimeError("Embedded byte array differs from AI/V3 model_int8.tflite")
     if embedded_length != len(model) or embedded_hash != expected_hash:
         raise RuntimeError("Embedded model length/hash constants are inconsistent")
 
@@ -68,13 +68,13 @@ def main() -> None:
         _capture(contract, r"kExpectedOutputZeroPoint\s*=\s*(-?\d+)\s*;")
     )
     if contract_length != len(model) or contract_hash != expected_hash:
-        raise RuntimeError("model_contract.h length/hash differs from AI/V2")
+        raise RuntimeError("model_contract.h length/hash differs from AI/V3")
 
     metadata_output = metadata["output"]["quantization"]
     if abs(output_scale - float(metadata_output["scale"])) > 1.0e-9:
-        raise RuntimeError("model_contract.h output scale differs from AI/V2")
+        raise RuntimeError("model_contract.h output scale differs from AI/V3")
     if output_zero_point != int(metadata_output["zero_point"]):
-        raise RuntimeError("model_contract.h output zero point differs from AI/V2")
+        raise RuntimeError("model_contract.h output zero point differs from AI/V3")
 
     print(
         "Embedded model verified: "

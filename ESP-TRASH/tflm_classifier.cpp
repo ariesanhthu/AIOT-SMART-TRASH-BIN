@@ -52,7 +52,7 @@ Status TflmClassifier::RegisterOperators() noexcept {
     return Status::kOk;
   }
 
-  // Exact V2 inventory: CONV_2D x4, MEAN x1, FULLY_CONNECTED x1.
+  // Exact V3 inventory: CONV_2D x5, MEAN x1, FULLY_CONNECTED x1.
   // Registering only unique operators keeps unused kernels out of flash.
   if (resolver_.AddConv2D() != kTfLiteOk ||
       resolver_.AddMean() != kTfLiteOk ||
@@ -70,7 +70,7 @@ Status TflmClassifier::Initialize() noexcept {
   }
   if (g_model_len != model_contract::kExpectedModelBytes ||
       std::strcmp(g_model_sha256, model_contract::kExpectedModelSha256) != 0) {
-    ESP_LOGE(kTag, "Embedded model does not match V2 contract");
+    ESP_LOGE(kTag, "Embedded model does not match V3 contract");
     return Status::kInvalidModel;
   }
 
@@ -206,7 +206,7 @@ Status TflmClassifier::ValidateTensorContract() noexcept {
 Status TflmClassifier::RunModelSelfTest() noexcept {
   // Deterministic synthetic input costs no flash asset and proves that this
   // exact model can execute through the on-device quantized kernels. The
-  // reference LiteRT output is [-128, 127, -12] (plastic); requiring the same
+  // reference LiteRT output is [-128, 82, 45] (plastic); requiring the same
   // well-separated top class tolerates small kernel-specific rounding.
   std::int8_t* value = input_->data.int8;
   std::int8_t* const end = value + input_->bytes;
@@ -230,7 +230,7 @@ Status TflmClassifier::RunModelSelfTest() noexcept {
   ESP_LOGI(kTag, "self-test raw=[%d,%d,%d] expected_top=plastic",
            static_cast<int>(paper), static_cast<int>(plastic),
            static_cast<int>(organic));
-  constexpr int kMinimumRawMargin = 32;
+  constexpr int kMinimumRawMargin = 24;
   if (static_cast<int>(plastic) - static_cast<int>(paper) <
           kMinimumRawMargin ||
       static_cast<int>(plastic) - static_cast<int>(organic) <

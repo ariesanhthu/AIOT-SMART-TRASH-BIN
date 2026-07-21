@@ -27,7 +27,7 @@ constexpr std::size_t kDestinationBytes =
 
 [[nodiscard]] constexpr std::int8_t QuantizeRgbChannel(
     const std::uint8_t value) noexcept {
-  // The V2 input contract is q = round((pixel / 255) / (1 / 255)) - 128.
+  // The V3 input contract is q = round((pixel / 255) / (1 / 255)) - 128.
   // Therefore every uint8 channel maps exactly to pixel - 128.
   return static_cast<std::int8_t>(
       static_cast<std::int16_t>(value) +

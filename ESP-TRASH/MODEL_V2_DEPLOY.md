@@ -1,5 +1,7 @@
 # Model V2 trên ESP32-CAM
 
+> Tài liệu lịch sử. Firmware hiện tại đã chuyển sang V3; xem `MODEL_V3_DEPLOY.md`.
+
 Firmware nhúng trực tiếp model:
 
 ```text
