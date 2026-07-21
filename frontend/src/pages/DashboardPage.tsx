@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useRanking } from '../hooks/useRanking'; // giữ nguyên — tích điểm thưởng nằm ngoài phạm vi backend hiện tại
 import type { Bin, AlertRow } from '../types/api';
 import { WASTE_TYPES } from '../constants/wasteTypes';
@@ -19,13 +19,15 @@ export const DashboardPage: React.FC<Props> = ({ bins, alerts, setPage }) => {
   const onlineBins = useMemo(() => bins.filter(b => b.online).length, [bins]);
   const dashBins = bins.slice(0, 4);
   const pendingAlerts = useMemo(() => alerts.filter(a => a.status === 'pending').slice(0, 3), [alerts]);
-  const { summary } = useTodaySummary();
-  const ranking = useRanking(bins, 7);  
+  const [days, setDays] = useState(1);
+  const { summary } = useTodaySummary(days);
+  const { summary: todaySummary } = useTodaySummary(1);
+  const ranking = useRanking(bins, 7); 
 
   const chartData = {
     labels: ['Hữu cơ', 'Giấy', 'Nhựa'],
     datasets: [{
-      data: [summary.organicCount, summary.paperCount, summary.plasticCount],
+      data: [todaySummary.organicCount, todaySummary.paperCount, todaySummary.plasticCount],
       backgroundColor: ['#22c55e', '#f59e0b', '#3b82f6'],
       borderWidth: 0,
       hoverOffset: 6,
@@ -41,9 +43,9 @@ export const DashboardPage: React.FC<Props> = ({ bins, alerts, setPage }) => {
         </div>
         <div className="page-header-actions">
           <div className="filter-group">
-            <button className="time-btn active-time">Hôm nay</button>
-            <button className="time-btn">7 ngày</button>
-            <button className="time-btn">30 ngày</button>
+            <button className={`time-btn ${days === 1 ? 'active-time' : ''}`} onClick={() => setDays(1)}>Hôm nay</button>
+            <button className={`time-btn ${days === 7 ? 'active-time' : ''}`} onClick={() => setDays(7)}>7 ngày</button>
+            <button className={`time-btn ${days === 30 ? 'active-time' : ''}`} onClick={() => setDays(30)}>30 ngày</button>
           </div>
         </div>
       </div>
