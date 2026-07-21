@@ -72,7 +72,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, setPage, isOpen, 
           <div className="sidebar-divider"></div>
 
           <div className="sidebar-nav-group">
-            <a href="#" className="sidebar-link" style={{ color: 'var(--outline)' }}>
+            <a href="#" onClick={(e) => { e.preventDefault(); setPage('support'); toggleSidebar(); }}
+              className={`sidebar-link ${currentPage === 'support' ? 'active' : ''}`}>
               <i className="nav-icon fa-solid fa-circle-question"></i>
               <span>Hỗ trợ</span>
             </a>
