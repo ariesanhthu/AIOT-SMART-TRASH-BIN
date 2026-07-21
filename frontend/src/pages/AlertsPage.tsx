@@ -1,23 +1,25 @@
 import React, { useState } from 'react';
-import { ALERT_HISTORY, WASTE_TYPES } from '../data';
+import { WASTE_TYPES } from '../constants/wasteTypes';
+import type { AlertRow } from '../types/api';
 
 interface Props {
-  alerts: typeof ALERT_HISTORY;
-  setAlerts: (alerts: typeof ALERT_HISTORY) => void;
+  alerts: AlertRow[];
+  resolveAlert: (id: string) => void;
+  markAllResolved: () => void;
   showToast: (msg: string) => void;
 }
 
-export const AlertsPage: React.FC<Props> = ({ alerts, setAlerts, showToast }) => {
+export const AlertsPage: React.FC<Props> = ({ alerts, resolveAlert, markAllResolved, showToast }) => {
   const activeAlerts = alerts.filter(a => a.status === 'pending');
   const [filter, setFilter] = useState('all');
 
-  const resolveAlert = (id: number) => {
-    setAlerts(alerts.map(a => a.id === id ? { ...a, status: 'resolved' } : a));
+  const handleResolve = (id: string) => {
+    resolveAlert(id);
     showToast('Đã đánh dấu đã xử lý!');
   };
 
-  const markAllResolved = () => {
-    setAlerts(alerts.map(a => a.status === 'pending' ? { ...a, status: 'resolved' } : a));
+  const handleMarkAll = () => {
+    markAllResolved();
     showToast('Tất cả cảnh báo đã xử lý!');
   };
 
@@ -38,7 +40,7 @@ export const AlertsPage: React.FC<Props> = ({ alerts, setAlerts, showToast }) =>
             <h2 className="title-sm" style={{ color: 'var(--on-surface)' }}>Cảnh báo đang hoạt động</h2>
             <span className="badge badge-pill badge-error">{activeAlerts.length} cảnh báo</span>
           </div>
-          <button onClick={markAllResolved} className="btn btn-outline btn-sm">
+          <button onClick={handleMarkAll} className="btn btn-outline btn-sm">
             <i className="fa-solid fa-check-double" style={{ fontSize: '12px' }}></i> Đánh dấu tất cả
           </button>
         </div>
@@ -50,7 +52,7 @@ export const AlertsPage: React.FC<Props> = ({ alerts, setAlerts, showToast }) =>
             </div>
           ) : (
             activeAlerts.map(a => {
-              const wt = WASTE_TYPES[(a.type === 'Hữu cơ' ? 'organic' : a.type === 'Tái chế' ? 'recycle' : 'inorganic') as keyof typeof WASTE_TYPES];
+              const wt = WASTE_TYPES[a.type];
               return (
                 <div key={a.id} style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', gap: '14px', borderBottom: '1px solid #E3E8E1' }}>
                   <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--error)', flexShrink: 0 }}></div>
@@ -59,9 +61,9 @@ export const AlertsPage: React.FC<Props> = ({ alerts, setAlerts, showToast }) =>
                     <p style={{ fontSize: '12px', color: 'var(--outline)', marginTop: '2px' }}>{a.date} · {a.time}</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className={`badge badge-pill ${wt.bgClass}`}>{a.type}</span>
+                    <span className={`badge badge-pill ${wt.bgClass}`}>{wt.label}</span>
                     <span style={{ fontWeight: 700, color: a.fill >= 90 ? 'var(--error)' : '#d97706', fontSize: '14px' }}>{a.fill}%</span>
-                    <button onClick={() => resolveAlert(a.id)} className="btn btn-sm" style={{ background: 'var(--primary-fixed)', color: 'var(--primary)', border: 'none' }}>
+                    <button onClick={() => handleResolve(a.id)} className="btn btn-sm" style={{ background: 'var(--primary-fixed)', color: 'var(--primary)', border: 'none' }}>
                       Xử lý
                     </button>
                   </div>
@@ -95,14 +97,14 @@ export const AlertsPage: React.FC<Props> = ({ alerts, setAlerts, showToast }) =>
             </thead>
             <tbody>
               {filteredAlerts.map(a => {
-                const wt = WASTE_TYPES[(a.type === 'Hữu cơ' ? 'organic' : a.type === 'Tái chế' ? 'recycle' : 'inorganic') as keyof typeof WASTE_TYPES];
+                const wt = WASTE_TYPES[a.type];
                 return (
                   <tr key={a.id}>
                     <td>
                       <p style={{ fontWeight: 600, color: 'var(--on-surface)' }}>Bin {a.bin}</p>
                       <p style={{ fontSize: '12px', color: 'var(--outline)' }}>Ngăn {a.compartment}</p>
                     </td>
-                    <td><span className={`badge badge-pill ${wt.bgClass}`}>{a.type}</span></td>
+                    <td><span className={`badge badge-pill ${wt.bgClass}`}>{wt.label}</span></td>
                     <td>
                       <div className="flex items-center gap-2">
                         <div className="progress-track" style={{ width: '64px' }}>
@@ -121,7 +123,7 @@ export const AlertsPage: React.FC<Props> = ({ alerts, setAlerts, showToast }) =>
                     </td>
                     <td>
                       {a.status === 'pending' && (
-                        <button onClick={() => resolveAlert(a.id)} style={{ fontSize: '13px', color: 'var(--primary-container)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500, fontFamily: 'Manrope' }}>Xử lý</button>
+                        <button onClick={() => handleResolve(a.id)} style={{ fontSize: '13px', color: 'var(--primary-container)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500, fontFamily: 'Manrope' }}>Xử lý</button>
                       )}
                     </td>
                   </tr>

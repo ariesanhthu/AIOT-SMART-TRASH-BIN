@@ -1,22 +1,23 @@
 flowchart TD
-    start([Bắt đầu UC6])
-    trigger[/"Input / Trigger: AI phân loại thành công<br/>và rác đã vào đúng ngăn"/]
+    start([UC6: Thống kê phân loại rác])
+    trigger[/"Input / Trigger: AI phân loại thành công<br/>và rác đã vào thùng"/]
     event[/"Dữ liệu sự kiện: Loại rác,<br/>mã thùng, thời gian"/]
     esp["Device: ESP32-CAM / mạch chính<br/>ghi nhận sự kiện phân loại"]
     network{"Có kết nối mạng?"}
     local[("Bộ nhớ cục bộ<br/>lưu sự kiện chưa gửi")]
     sync["Đồng bộ các sự kiện tồn<br/>khi mạng hoạt động lại"]
     send["Gửi sự kiện lên server"]
-    server[("Server kiểm tra và<br/>lưu sự kiện phân loại")]
+    server[("Server nhận và<br/>lưu sự kiện phân loại")]
+    retention[("Cơ sở dữ liệu lưu lịch sử<br/>tối thiểu 30 ngày")]
     aggregate["Cộng dồn và tổng hợp theo<br/>loại rác, thùng, ngày, tháng"]
-    dashboard["Dashboard hiển thị số lượng<br/>và tỷ lệ theo bộ lọc"]
+    dashboard["Dashboard hiển thị số lượng<br/>và tỷ lệ theo bộ lọc thùng,<br/>loại rác, khoảng thời gian"]
     actor["Actor: Quản lý / Nhân viên dọn dẹp<br/>xem thống kê"]
     output[/"Output: Thống kê phân loại rác<br/>theo thời gian và từng thùng"/]
     finish([Kết thúc UC6])
 
     start --> trigger --> event --> esp --> network
     network -- Không --> local --> sync --> network
-    network -- Có --> send --> server --> aggregate --> dashboard --> actor --> output --> finish
+    network -- Có --> send --> server --> retention --> aggregate --> dashboard --> actor --> output --> finish
 
     classDef actor fill:#fff3cd,stroke:#b58105,color:#3d2b00;
     classDef device fill:#dbeafe,stroke:#2563eb,color:#102a56;
@@ -33,5 +34,5 @@ flowchart TD
     class sync,send,aggregate,dashboard process;
     class network decision;
     class output output;
-    class local,server data;
+    class local,server,retention data;
     class start,finish terminal;

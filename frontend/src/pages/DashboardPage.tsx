@@ -1,27 +1,32 @@
 import React, { useMemo } from 'react';
-import { type Bin, WASTE_TYPES, REWARDS, ALERT_HISTORY } from '../data';
+import { useRanking } from '../hooks/useRanking'; // giữ nguyên — tích điểm thưởng nằm ngoài phạm vi backend hiện tại
+import type { Bin, AlertRow } from '../types/api';
+import { WASTE_TYPES } from '../constants/wasteTypes';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
+import { useTodaySummary } from '../hooks/useTodaySummary';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 interface Props {
   bins: Bin[];
-  alerts: typeof ALERT_HISTORY;
+  alerts: AlertRow[];
   setPage: (page: string) => void;
 }
 
 export const DashboardPage: React.FC<Props> = ({ bins, alerts, setPage }) => {
-  const fullBins = useMemo(() => bins.filter(b => Object.values(b.compartments).some(v => v >= 80)).length, [bins]);
+  const fullBins = useMemo(() => bins.filter(b => Object.values(b.compartments).some(v => (v ?? 0) >= 80)).length, [bins]);
   const onlineBins = useMemo(() => bins.filter(b => b.online).length, [bins]);
   const dashBins = bins.slice(0, 4);
   const pendingAlerts = useMemo(() => alerts.filter(a => a.status === 'pending').slice(0, 3), [alerts]);
+  const { summary } = useTodaySummary();
+  const ranking = useRanking(bins, 7);  
 
   const chartData = {
-    labels: ['Nhựa', 'Giấy', 'Hữu cơ'],
+    labels: ['Hữu cơ', 'Giấy', 'Nhựa'],
     datasets: [{
-      data: [35, 40, 25],
-      backgroundColor: ['#3b82f6', '#f59e0b', '#22c55e'],
+      data: [summary.organicCount, summary.paperCount, summary.plasticCount],
+      backgroundColor: ['#22c55e', '#f59e0b', '#3b82f6'],
       borderWidth: 0,
       hoverOffset: 6,
     }]
@@ -48,7 +53,7 @@ export const DashboardPage: React.FC<Props> = ({ bins, alerts, setPage }) => {
           <div className="flex items-start justify-between">
             <div>
               <p className="label-caps" style={{ color: 'var(--outline)' }}>Tổng lượt bỏ rác</p>
-              <p className="kpi-number mt-1" style={{ color: 'var(--on-surface)' }}>128</p>
+              <p className="kpi-number mt-1" style={{ color: 'var(--on-surface)' }}>{summary.totalCount}</p>
             </div>
             <div className="stat-icon-wrap" style={{ background: 'var(--surface-container)' }}>
               <i className="fa-solid fa-trash-can" style={{ color: 'var(--outline)' }}></i>
@@ -60,7 +65,7 @@ export const DashboardPage: React.FC<Props> = ({ bins, alerts, setPage }) => {
           <div className="flex items-start justify-between">
             <div>
               <p className="label-caps" style={{ color: 'var(--outline)' }}>Rác tái chế</p>
-              <p className="kpi-number mt-1" style={{ color: 'var(--on-surface)' }}>86</p>
+              <p className="kpi-number mt-1" style={{ color: 'var(--on-surface)' }}>{summary.recyclableCount}</p>
             </div>
             <div className="stat-icon-wrap" style={{ background: '#dbeafe' }}>
               <i className="fa-solid fa-recycle" style={{ color: 'var(--color-plastic)' }}></i>
@@ -105,50 +110,48 @@ export const DashboardPage: React.FC<Props> = ({ bins, alerts, setPage }) => {
             </a>
           </div>
           <div className="grid-2">
-            {dashBins.map(bin => {
-              return (
-                <div key={bin.id} onClick={() => setPage('bindetail')} className="card card-padding card-interactive" style={{ position: 'relative' }}>
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <p className="title-sm" style={{ color: 'var(--on-surface)' }}>{bin.name}</p>
-                      <p className="body-md" style={{ color: 'var(--outline)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                        <i className="fa-solid fa-location-dot" style={{ fontSize: '10px' }}></i> {bin.location}
-                      </p>
-                    </div>
-                    <span className={`badge badge-pill ${bin.online ? 'badge-online' : 'badge-offline'}`} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: bin.online ? '#22c55e' : 'var(--error)', display: 'inline-block' }}></span>
-                      {bin.online ? 'Online' : 'Offline'}
-                    </span>
+            {dashBins.map(bin => (
+              <div key={bin.id} onClick={() => setPage('bindetail')} className="card card-padding card-interactive" style={{ position: 'relative' }}>
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <p className="title-sm" style={{ color: 'var(--on-surface)' }}>{bin.name}</p>
+                    <p className="body-md" style={{ color: 'var(--outline)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                      <i className="fa-solid fa-location-dot" style={{ fontSize: '10px' }}></i> {bin.location}
+                    </p>
                   </div>
-                  {bin.online ? (
-                    <div className="space-y-3" style={{ marginTop: '12px' }}>
-                      {Object.entries(bin.compartments).map(([k, v]) => {
-                        const wt = WASTE_TYPES[k as keyof typeof WASTE_TYPES];
-                        const isOver = v >= 80;
-                        return (
-                          <div key={k}>
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="body-md" style={{ fontSize: '12px', color: 'var(--on-surface)' }}>{wt.label}</span>
-                              <span className="body-md" style={{ fontSize: '12px', fontWeight: 600, color: isOver ? 'var(--error)' : 'var(--on-surface)' }}>{v}%</span>
-                            </div>
-                            <div className="progress-track">
-                              <div className="progress-fill" style={{ width: `${v}%`, background: isOver ? '#ef4444' : wt.color }}></div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '16px 0' }}>
-                      <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--surface-container)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <i className="fa-solid fa-wifi" style={{ color: 'var(--outline-variant)', fontSize: '16px', opacity: 0.5 }}></i>
-                      </div>
-                      <p className="body-md" style={{ color: 'var(--outline-variant)' }}>Mất kết nối</p>
-                    </div>
-                  )}
+                  <span className={`badge badge-pill ${bin.online ? 'badge-online' : 'badge-offline'}`} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: bin.online ? '#22c55e' : 'var(--error)', display: 'inline-block' }}></span>
+                    {bin.online ? 'Online' : 'Offline'}
+                  </span>
                 </div>
-              );
-            })}
+                {bin.online ? (
+                  <div className="space-y-3" style={{ marginTop: '12px' }}>
+                    {Object.entries(bin.compartments).map(([k, v]) => {
+                      const wt = WASTE_TYPES[k as keyof typeof WASTE_TYPES];
+                      const isOver = (v ?? 0) >= 80;
+                      return (
+                        <div key={k}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="body-md" style={{ fontSize: '12px', color: 'var(--on-surface)' }}>{wt.label}</span>
+                            <span className="body-md" style={{ fontSize: '12px', fontWeight: 600, color: isOver ? 'var(--error)' : 'var(--on-surface)' }}>{v}%</span>
+                          </div>
+                          <div className="progress-track">
+                            <div className="progress-fill" style={{ width: `${v}%`, background: isOver ? '#ef4444' : wt.color }}></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '16px 0' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--surface-container)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <i className="fa-solid fa-wifi" style={{ color: 'var(--outline-variant)', fontSize: '16px', opacity: 0.5 }}></i>
+                    </div>
+                    <p className="body-md" style={{ color: 'var(--outline-variant)' }}>Mất kết nối</p>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
 
@@ -186,7 +189,7 @@ export const DashboardPage: React.FC<Props> = ({ bins, alerts, setPage }) => {
             </div>
             <div className="card card-padding">
               <div className="space-y-4">
-                {REWARDS.map((r, i) => (
+                {ranking.map((r, i) => (
                   <div key={i} className="flex items-center gap-3">
                     <span style={{ fontSize: '18px', minWidth: '24px', textAlign: 'center' }}>{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : ''}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
