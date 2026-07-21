@@ -3,10 +3,9 @@
 #include <Arduino.h>
 #include <ESPmDNS.h>
 #include <WiFi.h>
-#include <WiFiClient.h>
-#include <WiFiProv.h>
 
 #include <cinttypes>
+#include <cstdio>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -16,11 +15,32 @@
 
 #include "camera_adapter.h"
 #include "camera_web_server.h"
+#include "cloud_sync.h"
 #include "image_preprocessor.h"
 #include "model_data.h"
 #include "network_config.h"
 #include "status.h"
 #include "tflm_classifier.h"
+
+#if __has_include("secrets.h")
+#include "secrets.h"
+#endif
+
+#ifndef WIFI_SSID
+#define WIFI_SSID ""
+#endif
+
+#ifndef WIFI_PASSWORD
+#define WIFI_PASSWORD ""
+#endif
+
+#ifndef CLOUDINARY_CLOUD_NAME
+#define CLOUDINARY_CLOUD_NAME ""
+#endif
+
+#ifndef CLOUDINARY_UPLOAD_PRESET
+#define CLOUDINARY_UPLOAD_PRESET ""
+#endif
 
 namespace aiot
 {
@@ -36,6 +56,7 @@ namespace aiot
     constexpr int kNanoRxPin = 13; // Nano TX -> voltage divider -> ESP32 GPIO13.
     constexpr int kNanoTxPin = 14; // ESP32 GPIO14 -> Nano RX.
     constexpr std::size_t kNanoRxBufferBytes = 64;
+    constexpr std::size_t kNanoCommandBufferBytes = 32;
     constexpr unsigned long kCaptureRetryDelayMs = 30;
     constexpr std::size_t kMonitorCommandBufferBytes = 24;
 
@@ -43,9 +64,7 @@ namespace aiot
     {
       kIdle,
       kConnectingStored,
-      kProvisioning,
       kConnected,
-      kProvisioningTimedOut,
       kOffline,
     };
 
@@ -83,13 +102,6 @@ namespace aiot
       RecognitionTelemetry &operator=(const RecognitionTelemetry &) = delete;
     };
 
-    struct HttpEndpoint
-    {
-      char host[80]{};
-      char path[128]{};
-      std::uint16_t port = 80;
-    };
-
     TflmClassifier g_classifier;
     ImagePreprocessor g_preprocessor;
     CameraAdapter g_camera;
@@ -97,9 +109,8 @@ namespace aiot
     bool g_camera_web_ready = false;
     bool g_mdns_ready = false;
     volatile WifiState g_wifi_state = WifiState::kIdle;
-    volatile bool g_provisioning_started = false;
-    volatile bool g_provisioning_deinitialized = false;
     std::uint32_t g_last_camera_service_attempt_ms = 0;
+    CompartmentFillLevels g_fill_levels;
 
     constexpr std::uint32_t kCameraServiceRetryIntervalMs = 5000;
 
@@ -119,10 +130,106 @@ namespace aiot
               MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)));
     }
 
-    bool IsCaptureCommand(const int received_byte)
+    bool ParseNanoTrigger(const char *const command)
     {
-      // Support Serial.write(1) and Serial.println("1") from the Nano.
-      return received_byte == 1 || received_byte == '1';
+      unsigned trigger = 0;
+      char extra = '\0';
+      return command != nullptr &&
+             std::sscanf(command, "T %u %c", &trigger, &extra) == 1 &&
+             trigger == 1U;
+    }
+
+    bool ParseNanoFillLevels(const char *const command,
+                             CompartmentFillLevels *const levels)
+    {
+      if (command == nullptr || levels == nullptr)
+      {
+        return false;
+      }
+
+      unsigned plastic = 0;
+      unsigned paper = 0;
+      unsigned organic = 0;
+      char extra = '\0';
+      if (std::sscanf(command, "F %u %u %u %c", &plastic, &paper,
+                      &organic, &extra) != 3 ||
+          plastic > 100U || paper > 100U || organic > 100U)
+      {
+        return false;
+      }
+
+      levels->plastic = static_cast<std::uint8_t>(plastic);
+      levels->paper = static_cast<std::uint8_t>(paper);
+      levels->organic = static_cast<std::uint8_t>(organic);
+      levels->received = true;
+      return true;
+    }
+
+    bool HandleNanoCommandLine(const char *const command)
+    {
+      if (ParseNanoTrigger(command))
+      {
+        return true;
+      }
+
+      CompartmentFillLevels levels;
+      if (ParseNanoFillLevels(command, &levels))
+      {
+        g_fill_levels = levels;
+        Serial.printf(
+            "Nano fill levels plastic=%u paper=%u organic=%u\n",
+            static_cast<unsigned>(g_fill_levels.plastic),
+            static_cast<unsigned>(g_fill_levels.paper),
+            static_cast<unsigned>(g_fill_levels.organic));
+        return false;
+      }
+
+      Serial.printf("Invalid Nano command ignored [%s]\n", command);
+      return false;
+    }
+
+    bool ReadNanoCaptureCommand()
+    {
+      static char command[kNanoCommandBufferBytes]{};
+      static std::size_t command_length = 0;
+      bool capture_requested = false;
+
+      while (g_nano_serial.available() > 0)
+      {
+        const int received = g_nano_serial.read();
+        if (received == '\r' || received == '\n')
+        {
+          if (command_length > 0U)
+          {
+            command[command_length] = '\0';
+            capture_requested =
+                HandleNanoCommandLine(command) || capture_requested;
+          }
+          command_length = 0;
+          command[0] = '\0';
+          continue;
+        }
+
+        if (received < 32 || received > 126)
+        {
+          command_length = 0;
+          command[0] = '\0';
+          continue;
+        }
+
+        if (command_length + 1U >= sizeof(command))
+        {
+          command_length = 0;
+          command[0] = '\0';
+          Serial.println("Nano command too long; ignored");
+          continue;
+        }
+
+        command[command_length++] = static_cast<char>(received);
+        command[command_length] = '\0';
+      }
+
+      return capture_requested;
     }
 
     NanoResult ToNanoResult(const model_contract::WasteClass waste_class)
@@ -137,6 +244,38 @@ namespace aiot
         return NanoResult::kOrganic;
       }
       return NanoResult::kNotRecognized;
+    }
+
+    const char *NanoResultWasteType(const NanoResult result)
+    {
+      switch (result)
+      {
+      case NanoResult::kPlastic:
+        return "plastic";
+      case NanoResult::kPaper:
+        return "paper";
+      case NanoResult::kOrganic:
+        return "organic";
+      case NanoResult::kNotRecognized:
+        return "unknown";
+      }
+      return "unknown";
+    }
+
+    bool WaitForNanoFillLevels()
+    {
+      const std::uint32_t started_at = millis();
+      while (millis() - started_at < network_config::kNanoFillTimeoutMs)
+      {
+        ReadNanoCaptureCommand();
+        if (g_fill_levels.received)
+        {
+          return true;
+        }
+        delay(2);
+      }
+      Serial.println("Timed out waiting for Nano fill levels (F p pa o)");
+      return false;
     }
 
     void WarmUpCamera()
@@ -175,12 +314,8 @@ namespace aiot
         return "idle";
       case WifiState::kConnectingStored:
         return "connecting_stored";
-      case WifiState::kProvisioning:
-        return "provisioning";
       case WifiState::kConnected:
         return "connected";
-      case WifiState::kProvisioningTimedOut:
-        return "provisioning_timed_out";
       case WifiState::kOffline:
         return "offline";
       }
@@ -191,50 +326,6 @@ namespace aiot
     {
       g_wifi_state = state;
       Serial.printf("Wi-Fi state: %s\n", WifiStateName(state));
-    }
-
-    // Called by the Arduino network event task. Keep it short and never print
-    // the password carried by ARDUINO_EVENT_PROV_CRED_RECV.
-    void WifiProvisioningEvent(arduino_event_t *const event)
-    {
-      switch (event->event_id)
-      {
-      case ARDUINO_EVENT_WIFI_STA_GOT_IP:
-        g_wifi_state = WifiState::kConnected;
-        break;
-      case ARDUINO_EVENT_PROV_START:
-        g_provisioning_started = true;
-        Serial.println("BLE provisioning started");
-        break;
-      case ARDUINO_EVENT_PROV_CRED_RECV:
-        Serial.println("Wi-Fi credentials received from provisioning app");
-        break;
-      case ARDUINO_EVENT_PROV_CRED_FAIL:
-        if (event->event_info.prov_fail_reason ==
-            NETWORK_PROV_WIFI_STA_AUTH_ERROR)
-        {
-          Serial.println("Provisioning failed: Wi-Fi authentication error");
-        }
-        else
-        {
-          Serial.println("Provisioning failed: access point not found");
-        }
-        break;
-      case ARDUINO_EVENT_PROV_CRED_SUCCESS:
-        Serial.println("Provisioning credentials accepted");
-        break;
-      case ARDUINO_EVENT_PROV_END:
-        g_provisioning_started = false;
-        Serial.println("BLE provisioning stopped");
-        break;
-      case ARDUINO_EVENT_PROV_DEINIT:
-        g_provisioning_started = false;
-        g_provisioning_deinitialized = true;
-        Serial.println("BLE provisioning deinitialized");
-        break;
-      default:
-        break;
-      }
     }
 
     bool ConnectStoredWifi(const std::uint32_t timeout_ms)
@@ -264,112 +355,52 @@ namespace aiot
       return true;
     }
 
-    void MakeProvisioningServiceName(char *const output,
-                                     const std::size_t output_size)
+    bool HasConfiguredWifi()
     {
-      const std::uint16_t chip_suffix =
-          static_cast<std::uint16_t>(ESP.getEfuseMac() & 0xFFFFU);
-      snprintf(output, output_size, "AIOT-BIN-%04X",
-               static_cast<unsigned>(chip_suffix));
+      return WIFI_SSID[0] != '\0';
     }
 
-    bool WaitForProvisioningCleanup(const std::uint32_t timeout_ms)
+    bool ConnectConfiguredWifi(const std::uint32_t timeout_ms)
     {
-      const std::uint32_t started_at = millis();
-      while (!g_provisioning_deinitialized &&
-             millis() - started_at < timeout_ms)
+      if (!HasConfiguredWifi())
       {
-        delay(50);
-      }
-      return g_provisioning_deinitialized;
-    }
-
-    bool StartBleProvisioning()
-    {
-      char service_name[20]{};
-      MakeProvisioningServiceName(service_name, sizeof(service_name));
-
-      g_provisioning_started = false;
-      g_provisioning_deinitialized = false;
-      SetWifiState(WifiState::kProvisioning);
-
-      Serial.printf("Open ESP BLE Provisioning and select device %s\n",
-                    service_name);
-      Serial.printf("Proof of Possession: %s\n",
-                    network_config::kProvisioningPop);
-
-      // reset_provisioned=true is intentional: this path is entered only after
-      // the stored credentials failed, so BLE must accept a replacement network.
-      WiFiProv.beginProvision(
-          NETWORK_PROV_SCHEME_BLE, NETWORK_PROV_SCHEME_HANDLER_FREE_BLE,
-          NETWORK_PROV_SECURITY_1, network_config::kProvisioningPop,
-          service_name, nullptr, nullptr, true);
-
-      const std::uint32_t started_at = millis();
-      while (WiFi.status() != WL_CONNECTED &&
-             millis() - started_at < network_config::kProvisioningTimeoutMs)
-      {
-        delay(100);
-      }
-
-      const bool connected = WiFi.status() == WL_CONNECTED;
-      if (connected)
-      {
-        // Auto-stop lets the phone receive the success response first. If that
-        // event is delayed, explicitly stop after a bounded grace period.
-        if (!WaitForProvisioningCleanup(
-                network_config::kProvisioningCleanupTimeoutMs))
-        {
-          WiFiProv.endProvision();
-        }
-      }
-      else
-      {
-        SetWifiState(WifiState::kProvisioningTimedOut);
-        Serial.println("BLE provisioning timed out; stopping BLE");
-        WiFiProv.endProvision();
-      }
-
-      if (!WaitForProvisioningCleanup(
-              network_config::kProvisioningCleanupTimeoutMs))
-      {
-        // Never start camera/TFLM while the BLE provisioning manager may still
-        // own memory. Restart provides a deterministic cleanup fallback.
-        Serial.println("BLE cleanup timed out; restarting safely");
-        delay(200);
-        ESP.restart();
         return false;
       }
+
+      SetWifiState(WifiState::kConnectingStored);
+      Serial.print("Connecting with secrets.h Wi-Fi credentials");
+      WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+      const bool connected = WaitForWifi(timeout_ms);
+      Serial.println();
 
       if (!connected)
       {
         SetWifiState(WifiState::kOffline);
-        Serial.println("Continuing offline after provisioning timeout");
+        Serial.println("secrets.h Wi-Fi connection timed out");
         return false;
       }
 
       SetWifiState(WifiState::kConnected);
-      Serial.printf("Provisioned Wi-Fi connected: IP=%s RSSI=%d dBm\n",
+      Serial.printf("Wi-Fi connected: IP=%s RSSI=%d dBm\n",
                     WiFi.localIP().toString().c_str(), WiFi.RSSI());
       return true;
     }
 
     bool InitializeWifi()
     {
-      // Flash persistence is required so provisioning survives restart.
+      // Flash persistence keeps credentials supplied by secrets.h or an older
+      // provisioning build available across restarts.
       WiFi.persistent(true);
       WiFi.mode(WIFI_STA);
       WiFi.setHostname(network_config::kMdnsHostname);
       WiFi.setSleep(false);
       WiFi.setAutoReconnect(true);
-      WiFi.onEvent(WifiProvisioningEvent);
 
       bool connected = ConnectStoredWifi(network_config::kInitialWifiTimeoutMs);
       if (!connected)
       {
-        connected = StartBleProvisioning();
+        connected = ConnectConfiguredWifi(network_config::kInitialWifiTimeoutMs);
       }
-      Serial.printf("Telemetry server: %s\n", network_config::kServerUrl);
       return connected;
     }
 
@@ -442,7 +473,7 @@ namespace aiot
       const bool erased = WiFi.disconnect(true, true, 1000);
       Serial.println(erased ? "Wi-Fi credentials erased"
                             : "Wi-Fi erase reported an error; restarting");
-      Serial.println("Restarting; BLE provisioning will open after Wi-Fi timeout");
+      Serial.println("Restarting; Wi-Fi will use credentials from secrets.h");
       Serial.flush();
       delay(200);
       ESP.restart();
@@ -467,6 +498,31 @@ namespace aiot
 
         if (received == '\r' || received == '\n')
         {
+          if (command_length > 0U)
+          {
+            if (std::strcmp(command, "T 1") == 0)
+            {
+              capture_requested = true;
+            }
+            else
+            {
+              CompartmentFillLevels levels;
+              if (ParseNanoFillLevels(command, &levels))
+              {
+                g_fill_levels = levels;
+                Serial.printf(
+                    "Monitor fill levels plastic=%u paper=%u organic=%u\n",
+                    static_cast<unsigned>(g_fill_levels.plastic),
+                    static_cast<unsigned>(g_fill_levels.paper),
+                    static_cast<unsigned>(g_fill_levels.organic));
+              }
+              else if (std::strcmp(command, "WIFI_RESET") != 0)
+              {
+                Serial.printf("Invalid Monitor command ignored [%s]\n",
+                              command);
+              }
+            }
+          }
           command_length = 0;
           command[0] = '\0';
           continue;
@@ -494,6 +550,24 @@ namespace aiot
       }
 
       return capture_requested;
+    }
+
+    bool WaitForMonitorFillLevels()
+    {
+      Serial.println(
+          "Enter F <plastic> <paper> <organic> to continue cloud sync");
+      const std::uint32_t started_at = millis();
+      while (millis() - started_at < network_config::kMonitorFillTimeoutMs)
+      {
+        ReadMonitorCaptureCommand();
+        if (g_fill_levels.received)
+        {
+          return true;
+        }
+        delay(2);
+      }
+      Serial.println("Monitor fill-level timeout; cloud sync cancelled");
+      return false;
     }
 
     bool EncodeTelemetryJpeg(camera_fb_t *const frame,
@@ -601,6 +675,7 @@ namespace aiot
       return nano_result;
     }
 
+#if 0
     bool ParseHttpEndpoint(const char *const url, HttpEndpoint *const endpoint)
     {
       if (url == nullptr || endpoint == nullptr)
@@ -851,6 +926,7 @@ namespace aiot
                     response_body);
       return false;
     }
+#endif
 
     bool InitializeAiPipeline()
     {
@@ -907,12 +983,15 @@ namespace aiot
     Serial.println("UART2: 9600 8N1, RX=GPIO13, TX=GPIO14");
     LogMemory("boot");
 
-    // Provision before allocating camera/TFLM resources. BLE is stopped and
-    // deinitialized before this function returns.
+    // Connect before allocating camera/TFLM resources so NTP is ready early.
     const bool wifi_connected = InitializeWifi();
     if (!wifi_connected)
     {
       Serial.println("Wi-Fi unavailable; local AI and UART will still start");
+    }
+    else
+    {
+      InitializeCloudClock();
     }
     LogMemory("network ready");
 
@@ -929,7 +1008,8 @@ namespace aiot
     }
 
     MaintainCameraWebServices();
-    Serial.println("Waiting for Nano command 1 or Serial WIFI_RESET");
+    Serial.println(
+        "Waiting for Nano T 1 or Serial Monitor 1 T 1 WIFI_RESET");
   }
 
   void LoopFirmware()
@@ -940,17 +1020,9 @@ namespace aiot
     bool command_from_monitor = false;
 
     // Nhận lệnh thật từ Arduino Nano qua UART2.
-    if (g_nano_serial.available() > 0)
-    {
-      const int command = g_nano_serial.read();
+    command_from_nano = ReadNanoCaptureCommand();
 
-      if (IsCaptureCommand(command))
-      {
-        command_from_nano = true;
-      }
-    }
-
-    // UART0 accepts capture command 1 and the administrative WIFI_RESET command.
+    // UART0 keeps test command 1, accepts T 1, and keeps WIFI_RESET.
     command_from_monitor = ReadMonitorCaptureCommand();
 
     // Chưa nhận lệnh từ cả Nano lẫn Serial Monitor.
@@ -971,10 +1043,12 @@ namespace aiot
 
     RecognitionTelemetry telemetry;
     const NanoResult result = CaptureAndClassify(&telemetry);
+    g_fill_levels.received = false;
 
     if (command_from_nano)
     {
       // Chỉ gửi kết quả 0-3 về Nano khi Nano là bên yêu cầu.
+      g_nano_serial.print("C ");
       g_nano_serial.println(static_cast<std::uint8_t>(result));
 
       Serial.printf(
@@ -989,8 +1063,30 @@ namespace aiot
           static_cast<unsigned>(result));
     }
 
-    // Cả lệnh từ Nano và Monitor đều chụp ảnh,
-    // chạy AI và tải ảnh lên server.
-    UploadRecognition(result, telemetry);
+    // Keep the captured JPEG alive until the real Nano or Serial Monitor test
+    // supplies all three fill levels for the same recognition event.
+    const bool fill_levels_received = command_from_nano
+                                          ? WaitForNanoFillLevels()
+                                          : WaitForMonitorFillLevels();
+    if (!fill_levels_received)
+    {
+      return;
+    }
+
+    if (!EnsureWifiConnected())
+    {
+      Serial.println("Cloud sync skipped: Wi-Fi unavailable");
+      return;
+    }
+
+    CloudRecognition cloud_recognition{};
+    cloud_recognition.jpeg_data = telemetry.jpeg_data;
+    cloud_recognition.jpeg_length = telemetry.jpeg_length;
+    cloud_recognition.waste_type = NanoResultWasteType(result);
+    cloud_recognition.confidence = telemetry.has_classification
+                                       ? telemetry.classification.confidence
+                                       : 0.0F;
+    cloud_recognition.has_classification = telemetry.has_classification;
+    SyncRecognitionToCloud(cloud_recognition, g_fill_levels);
   }
 } // namespace aiot

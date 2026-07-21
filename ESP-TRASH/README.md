@@ -13,11 +13,9 @@ kServerUrl    = "http://172.20.10.4:8000/api/v1/detections"
 kDeviceToken  = "aiot-demo-token"
 ```
 
-Wi-Fi được lưu bằng BLE provisioning, không hard-code SSID/password trong
-firmware. IP `172.20.10.4` là IP máy chạy server được xác minh trên mạng
-`AIoTSTB` ngày 2026-07-18. `server-tmp` sẽ in URL LAN đúng khi khởi động. Nếu
-DHCP đổi IP, cập nhật `kServerUrl` rồi nạp lại firmware. Token phải giống biến
-`AIOT_DEVICE_TOKEN` phía server.
+Firmware thử credential đã lưu trong NVS trước, sau đó dùng `WIFI_SSID` và
+`WIFI_PASSWORD` trong file ignored `secrets.h`. BLE provisioning không được
+link vào bản firmware này để dành IRAM cho HTTPS Cloudinary và Firebase.
 
 ESP và máy server phải ở cùng mạng cho phép các client truy cập lẫn nhau.
 Một số mobile hotspot bật client isolation; khi đó dù cùng SSID, ESP vẫn không
@@ -52,34 +50,39 @@ Không dùng microSD vì GPIO13/14 dành cho UART. Cấu hình: 9600 baud, 8N1.
 Nano có thể gửi:
 
 ```cpp
-Serial.write(1);       // byte 0x01
-// hoặc
-Serial.println("1");  // ký tự ASCII '1'
+Serial.println("T 1");         // trigger chụp ảnh và chạy AI
+Serial.println("F 20 80 65");  // độ đầy: nhựa, giấy, hữu cơ
 ```
+
+Mỗi lệnh kết thúc bằng `\n`. Giao thức chỉ dùng chữ, số và dấu cách; không dùng
+dấu ngoặc góc, dấu phẩy hoặc dấu hai chấm. Giá trị `F` phải nằm trong `0..100`.
 
 ESP trả:
 
 | Kết quả | Ý nghĩa |
 | --- | --- |
-| `0\n` | Camera/model/ảnh/tiền xử lý/suy luận lỗi |
-| `1\n` | Nhựa (`plastic`) |
-| `2\n` | Giấy (`paper`) |
-| `3\n` | Hữu cơ (`organic`) |
+| `C 0\n` | Camera/model/ảnh/tiền xử lý/suy luận lỗi |
+| `C 1\n` | Nhựa (`plastic`) |
+| `C 2\n` | Giấy (`paper`) |
+| `C 3\n` | Hữu cơ (`organic`) |
 
-## Dữ liệu gửi FastAPI
+Serial Monitor 115200 baud test được toàn bộ cloud pipeline:
 
-Ảnh QVGA RGB565 dùng cho AI được chuyển thành JPEG quality 80. Firmware POST
-body `image/jpeg` trực tiếp để không tạo bản sao base64/multipart trong RAM.
-Các HTTP header gồm:
+1. Nhập `1` hoặc `T 1` để chụp và phân loại.
+2. Sau khi thấy `Test result`, nhập `F 10 10 10` theo thứ tự nhựa, giấy, hữu cơ.
+3. Firmware upload JPEG lên Cloudinary, in `secure_url`, cập nhật
+   `devices/{deviceId}` và tạo event Firestore có `image_url`.
 
-- result code và device ID;
-- confidence và xác suất paper/plastic/organic;
-- thời gian inference;
-- chiều rộng/cao ảnh;
-- SHA-256 model và device token.
+Firmware chờ lệnh `F` tối đa 60 giây khi test Monitor. Lệnh `WIFI_RESET` vẫn
+giữ nguyên.
 
-Nano nhận kết quả trước khi HTTP upload bắt đầu. Server trả lỗi hay timeout chỉ
-được ghi trên UART0, không thay đổi kết quả đã gửi Nano.
+## Đồng bộ Cloudinary và Firestore
+
+Ảnh QVGA RGB565 dùng cho AI được chuyển thành JPEG quality 80 và upload trực
+tiếp tới Cloudinary bằng multipart HTTPS. Chỉ sau khi nhận được `secure_url`,
+firmware mới gọi Firestore `documents:commit`. Commit cập nhật
+`devices/{deviceId}` và tạo `devices/{deviceId}/events/{eventId}` atomically với
+`image_url`, kết quả AI và ba mức đầy.
 
 ## Pipeline AI
 
@@ -90,7 +93,7 @@ Nano nhận kết quả trước khi HTTP upload bắt đầu. Server trả lỗ
   `paper`, `plastic`, `organic`.
 - QVGA RGB565 -> center crop -> nearest-neighbor 96 x 96 -> quantize trực tiếp.
 - TFLite Micro/ESP-NN, dequantize logits và stable-softmax.
-- Mapping UART: `plastic=1`, `paper=2`, `organic=3`.
+- Mapping UART: `C 1` là plastic, `C 2` là paper, `C 3` là organic.
 - Tensor arena 256 KiB được cấp một lần trong PSRAM.
 
 Mỗi framebuffer được dùng cho cả input AI và JPEG telemetry, rồi trả lại camera

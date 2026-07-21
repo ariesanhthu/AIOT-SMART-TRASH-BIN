@@ -114,7 +114,11 @@ devices/{deviceId}/events/{eventId}
   ├─ received_at: timestamp
   ├─ synced_late: boolean
   ├─ firmware_version: string
-  └─ ai_model_version: string
+  ├─ ai_model_version: string
+  ├─ alert_status: "active" | "resolved" | null
+  ├─ resolved_at: timestamp | null
+  ├─ resolved_by: string | null
+  └─ image_url: string | null
 
 daily_stats/{deviceId}_{yyyy-mm-dd}
   ├─ device_id: string
@@ -135,7 +139,7 @@ users/{uid}
 
 `devices/{deviceId}` là document trạng thái hiện tại, giờ được **ESP32 tự cập nhật trực tiếp** (mức đầy từng ngăn, `last_seen_at`, phiên bản firmware/model) mỗi khi có telemetry mới, còn `threshold`/`maintenance_mode` do **dashboard qua backend** ghi vào cùng document này. Dashboard không đọc/ghi trực tiếp Firestore; dashboard gọi REST API như `GET /api/devices` hoặc `GET /api/devices/{id}` để backend trả về trạng thái mới nhất, và `PATCH /api/devices/{id}/config` để backend ghi threshold/maintenance_mode xuống Firestore.
 
-Vì cùng một document giờ có 2 nguồn ghi (ESP32 ghi phần trạng thái đo được, backend ghi phần cấu hình do người quản lý đặt), Firestore Security Rules cần tách quyền theo field: ESP32 chỉ được phép ghi các field trạng thái (`fill_percent`, `status`, `last_seen_at`, version), không được ghi `threshold`/`maintenance_mode`; ngược lại backend (qua Admin SDK, bỏ qua rules) là nơi duy nhất ghi `threshold`/`maintenance_mode`.
+Vì cùng một document giờ có 2 nguồn ghi (ESP32 ghi phần trạng thái đo được, backend ghi phần cấu hình do người quản lý đặt), Firestore Security Rules cần tách quyền theo field: ESP32 chỉ được phép ghi các field trạng thái (`compartments.*.fill_percent`, `compartments.*.status`, `class_name`, `last_seen_at`, version), không được ghi `threshold`/`maintenance_mode`; ngược lại backend (qua Admin SDK, bỏ qua rules) là nơi duy nhất ghi `threshold`/`maintenance_mode`.
 
 Không lưu `connection_status` cố định trong DB vì trạng thái online/offline có thể suy ra từ `last_seen_at`. Cách này tránh trường hợp dữ liệu bị lệch, ví dụ `connection_status = "online"` nhưng thiết bị đã lâu không gửi heartbeat.
 
@@ -143,7 +147,9 @@ Không lưu `connection_status` cố định trong DB vì trạng thái online/o
 
 `devices/{deviceId}/events` là log insert-only cho các sự kiện `CLASSIFY`, `FULL_ALERT`, `ERROR`, `MAINTENANCE`. Cấu trúc này bám sát bảng dữ liệu tối thiểu trong đặc tả: device ID, timestamp, event type, waste category, confidence, target compartment, fill level, alert threshold, firmware version và AI model version.
 
-`device_timestamp` là thời gian do firmware gán tại lúc sự kiện xảy ra. `received_at` giờ là thời gian Firestore ghi nhận document (dùng `serverTimestamp()` thay vì backend gán, vì không còn backend chặn giữa). Khi mất mạng và đồng bộ lại, firmware tự đặt `synced_late = true` giúp phân biệt dữ liệu đến trễ mà vẫn giữ đúng thứ tự thời gian gốc theo NFREQ.8 — do không còn backend validate, Security Rules nên ràng buộc tối thiểu: `device_timestamp` phải có mặt và thuộc kiểu timestamp hợp lệ khi ghi.
+`device_timestamp` là thời gian do firmware gán tại lúc sự kiện xảy ra. Với Firestore REST, firmware hiện gán `received_at` từ cùng đồng hồ UTC đã đồng bộ NTP; có thể nâng cấp sang server timestamp bằng Commit API sau. Khi mất mạng và đồng bộ lại, firmware tự đặt `synced_late = true` giúp phân biệt dữ liệu đến trễ mà vẫn giữ đúng thứ tự thời gian gốc theo NFREQ.8 — do không còn backend validate, Security Rules nên ràng buộc tối thiểu: `device_timestamp` phải có mặt và thuộc kiểu timestamp hợp lệ khi ghi.
+
+Ảnh JPEG không được nhúng vào Firestore. ESP32 upload ảnh trực tiếp lên Cloudinary bằng unsigned preset, lấy `secure_url`, rồi lưu URL này trong `events.image_url`. Nếu không lấy được URL, firmware không tạo event để tránh bản ghi nhận diện thiếu ảnh.
 
 Vì ESP32 ghi thẳng, không ai đứng giữa để tăng `daily_stats` hay chuyển `compartments.status` sang `"full"` như trước. Việc này chuyển sang **Cloud Function trigger `onCreate`** trên `devices/{deviceId}/events`: mỗi document event mới tạo ra sẽ kích hoạt function tương ứng để cộng dồn `daily_stats` (theo `waste_type`) và cập nhật `devices/{deviceId}.compartments.{type}.status` khi `event_type == "FULL_ALERT"`.
 
@@ -170,17 +176,20 @@ Các điểm dưới đây không được xem là thiếu sót ngoài ý muốn
 | `alerts` collection riêng | FREQ.1 | Cảnh báo đầy hiện tại có thể hiển thị từ `devices.compartments.{type}.status = "full"` và event `FULL_ALERT`, chưa cần lifecycle `active/resolved`. | Thêm khi cần danh sách cảnh báo đang xử lý, lịch sử xử lý, người xác nhận, SLA dọn rác hoặc lifecycle active/resolved/acknowledged. |
 | `monthly_stats` precompute | FREQ.5 | Thống kê tháng có thể cộng từ `daily_stats`; quy mô tối thiểu 30 ngày và 10 thiết bị vẫn chấp nhận được. | Thêm khi dashboard thống kê tháng chậm, số thiết bị tăng, thời gian lưu trữ dài hơn, hoặc chi phí read trở thành vấn đề. |
 | Cơ chế TTL/cron dọn dữ liệu | NFREQ.6 | Schema đã có `device_timestamp` và `received_at`, đủ để thêm TTL/scheduled cleanup sau mà không đổi cấu trúc chính. | Thêm khi vận hành dài ngày để tránh tăng chi phí lưu trữ và truy vấn. |
-| Lưu ảnh phân loại | NFREQ.16 | NFREQ.16 yêu cầu xóa ảnh tạm trong 2 giây theo mặc định, nên core schema không lưu ảnh. | Chỉ thêm khi có chính sách quyền riêng tư rõ ràng và mục tiêu debug/dataset cụ thể. |
+| Lưu binary ảnh trong Firestore | NFREQ.16 | Firestore chỉ lưu `image_url`; JPEG nằm trên Cloudinary và buffer tạm được giải phóng sau chu kỳ đồng bộ. | Cần cấu hình retention/xóa ảnh trên Cloudinary theo chính sách quyền riêng tư khi vận hành thật. |
 
 ## 6. Luồng ghi dữ liệu chính
 
 ### 6.1 Khi phân loại thành công
 
-1. Firmware phân loại rác và điều khiển ngăn tương ứng.
-2. Sau khi đóng nắp, firmware đọc cảm biến siêu âm và tính `fill_percent`.
-3. Firmware ghi trực tiếp document mới vào `devices/{deviceId}/events` (Firestore SDK/REST, dùng device credential) gồm `waste_type`, `ai_confidence`, `target_compartment`, `device_timestamp`, `firmware_version`, `ai_model_version`.
-4. Trong cùng phiên, firmware cập nhật `devices/{deviceId}` (phần trạng thái đo được: `fill_percent`, `last_seen_at`) và **đọc kèm** `threshold`/`maintenance_mode` hiện tại từ chính document đó (piggyback theo mục 2.2) để dùng cho lần hoạt động kế tiếp.
-5. Cloud Function `onCreate` trên `events` tự động increment `daily_stats/{deviceId}_{yyyy-mm-dd}`.
+1. Firmware chụp ảnh, phân loại rác và trả mã ngăn tương ứng.
+2. Sau khi đóng nắp, Nano gửi `F plastic paper organic`; firmware giữ JPEG của lần nhận diện cho đến khi nhận đủ ba giá trị.
+3. Firmware upload JPEG trực tiếp lên Cloudinary và lấy `secure_url`. Nếu bước này lỗi, chu kỳ dừng trước khi ghi Firestore.
+4. Firmware gọi Firestore REST `documents:commit` với hai write atomic: cập nhật `devices/{deviceId}` bằng `updateMask`, đồng thời tạo `devices/{deviceId}/events/{eventId}` với precondition `exists=false`.
+5. Device write chỉ gồm `class_name`, `compartments.*.fill_percent`, `compartments.*.status`, `last_seen_at`, `firmware_version`, `ai_model_version`; event write gồm dữ liệu AI, ba mức đầy và `image_url = secure_url`. Hai write cùng thành công hoặc cùng thất bại.
+6. Cloud Function `onCreate` trên `events` tự động increment `daily_stats/{deviceId}_{yyyy-mm-dd}`.
+
+Có thể test cùng luồng không cần Nano qua Serial Monitor 115200 baud: nhập `T 1` (hoặc `1`), chờ AI trả kết quả, rồi nhập `F 10 10 10`. Monitor và UART2 dùng cùng định dạng thứ tự `plastic paper organic` và cùng pipeline Cloudinary → Firestore.
 
 ### 6.2 Khi ngăn vượt ngưỡng đầy
 

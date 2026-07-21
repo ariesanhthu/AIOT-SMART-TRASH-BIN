@@ -1,110 +1,173 @@
-<h1><span style="color:#B30000">KIẾN TRÚC HỆ THỐNG THÙNG RÁC THÔNG MINH</span></h1>
+# LUỒNG KẾT NỐI THÙNG RÁC THÔNG MINH
 
----
+## 1. Luồng thật với Arduino Nano
 
-<h2><span style="color:#0047AB">1. THIẾT BỊ: ARDUINO</span></h2>
+Giao tiếp UART2 dùng 9600 baud, mỗi lệnh kết thúc bằng `\n`.
 
-**Gửi đến ESP32-CAM — Kích hoạt nhận diện AI**
-- Mục đích: Báo có vật thể xuất hiện tại vùng chờ để bắt đầu chụp ảnh và phân loại.
-- Dữ liệu gửi (UART): `T 1` — (Trigger)
+| Chiều | Lệnh | Ý nghĩa |
+|---|---|---|
+| Nano → ESP32-CAM | `T 1` | Chụp ảnh và chạy AI |
+| ESP32-CAM → Nano | `C 0..3` | 0=lỗi, 1=plastic, 2=paper, 3=organic |
+| Nano → ESP32-CAM | `F plastic paper organic` | Mức đầy phần trăm của ba ngăn |
 
-**Gửi đến ESP32-CAM — Báo cáo dung tích thực tế của 3 ngăn riêng biệt**
-- Mục đích: Gửi dữ liệu đo thời gian thực của cả 3 ngăn (Nhựa, Giấy, Hữu cơ) để ESP32-CAM đóng gói chính xác vào cấu trúc bản đồ (Map) trên Firestore.
-- Dữ liệu gửi (UART): `F 20 80 65 ` — (Theo thứ tự cố định: Nhựa = 20%, Giấy = 80%, Hữu cơ = 65%)
+Ví dụ:
 
-- - -
-
-**Nhận từ ESP32-CAM — Kết quả phân loại mở servo hoặc lệnh hủy do đầy**
-- Mục đích: Lấy kết quả AI để điều khiển Servo mở đúng ngăn hoặc hủy lệnh nếu ngăn đó báo đầy.
-- Dữ liệu nhận (UART):
-
-| Mã lệnh | Ý nghĩa | Hành động |
-|:---:|:---|:---|
-| `C 1` | AI phân loại là Nhựa | Mở ngăn Nhựa |
-| `C 2` | AI phân loại là Giấy | Mở ngăn Giấy |
-| `C 3` | AI phân loại là Hữu cơ | Mở ngăn Hữu cơ |
-| `C 0` / `<số khác trên>` | Lỗi thiết bị / Thùng đầy từ chối nhận | Bật led đỏ |
-
----
-
-<h2><span style="color:#0047AB">2. THIẾT BỊ: ESP32-CAM</span></h2>
-
-**Đồng bộ thời gian khởi động — Mạng NTP (esp_sntp)**
-- Hành động: Đồng bộ thời gian thực từ máy chủ NTP tại thời điểm khởi động trước khi cho phép vòng lặp main loop chấp nhận các tín hiệu Trigger từ Arduino.
-- Ý nghĩa: Đảm bảo trường device_timestamp đạt chuẩn xác thực của bộ lọc firestore.rules và phục vụ chính xác thuật toán gom cụm dữ liệu theo ngày tại Functions Backend.
-
-- - -
-
-**Nhận từ Arduino — Lệnh Trigger / Dữ liệu khoảng cách cảm biến**
-- Dữ liệu nhận (UART): `T 1` hoặc `F nhua giay huu_co`
-
-**Gửi đến Arduino — Trả kết quả phân loại tức thời**
-- Dữ liệu gửi (UART): `C X` (X nhận các giá trị từ 0 đến 4)
-
-- - -
-
-**Gửi đến Cloud Firestore REST API — Ghi nhận nhật ký sự kiện (Event Logging kèm ID trong JSON)**
-- Mục đích: Lưu trữ lịch sử phân loại CLASSIFY hoặc FULL_ALERT. Trường device_id được giữ lại trong JSON payload để phục vụ các câu lệnh truy vấn gom cụm (Collection Group Query).
-- Đường dẫn REST: `POST .../projects/{project_id}/databases/(default)/documents/devices/{deviceId}/events`
-- Định dạng dữ liệu gửi (Firestore REST API bắt buộc):
-```json
-{
-  "fields": {
-    "device_id": { "stringValue": "STBIN_HCMUS_001" },
-    "event": { "stringValue": "CLASSIFY" },
-    "waste_type": { "stringValue": "nhua" },
-    "ai_confidence": { "doubleValue": 0.92 },
-    "device_timestamp": { "timestampValue": "2026-07-19T15:20:00Z" },
-    "firmware_version": { "stringValue": "v2.4-esp-idf" }
-  }
-}
+```text
+Nano -> ESP: T 1
+ESP  -> Nano: C 2
+Nano -> ESP: F 10 10 10
 ```
 
-**Gửi đến Cloud Firestore REST API — Cập nhật trạng thái vi mô từng ngăn (Telemetry Update)**
-- Mục đích: Cập nhật chi tiết độ đầy của từng ngăn riêng biệt phục vụ giao diện Dashboard giám sát.
-- Phương thức HTTP: `PATCH` (sử dụng tham số `updateMask.fieldPaths` để cập nhật sâu vào Map Object).
-- Định dạng dữ liệu gửi (Firestore REST API sử dụng kiểu mapValue cho cấu trúc đa ngăn):
+ESP giữ JPEG của lần nhận diện trong RAM sau khi trả `C 2`. Chỉ khi nhận được
+`F 10 10 10` của cùng chu kỳ, ESP mới bắt đầu đồng bộ cloud.
+
+## 2. Test end-to-end bằng Serial Monitor
+
+Mở Serial Monitor ở 115200 baud và chọn line ending có newline.
+
+1. Nhập `T 1` hoặc `1`.
+2. Chờ kết quả AI và dòng yêu cầu nhập mức đầy.
+3. Nhập `F 10 10 10`.
+4. Theo dõi lần lượt các log Cloudinary và Firestore.
+
+Serial Monitor dùng cùng parser và cùng cloud pipeline với Nano. Khác biệt duy
+nhất là kết quả `C x` chỉ được in ra Monitor, không gửi qua UART2.
+
+## 3. Luồng Cloudinary và Firestore
+
+```text
+T 1
+  -> ESP chụp JPEG + chạy AI
+  -> trả/in C x
+F plastic paper organic
+  -> POST multipart JPEG tới Cloudinary
+  -> nhận secure_url
+  -> Firebase Authentication lấy ID token
+  -> POST documents:commit (device update + event create)
+```
+
+ESP gọi trực tiếp Cloudinary và Cloud Firestore qua HTTPS. `server-tmp` không
+nằm trong luồng này.
+
+Nếu Cloudinary không trả về `secure_url`, firmware dừng chu kỳ và không ghi
+Firestore, tránh tạo event nhận diện thiếu ảnh.
+
+### 3.1 Upload ảnh Cloudinary
+
+Endpoint:
+
+```text
+POST https://api.cloudinary.com/v1_1/{cloud_name}/image/upload
+Content-Type: multipart/form-data
+```
+
+Multipart body gồm:
+
+| Field | Nội dung |
+|---|---|
+| `upload_preset` | Unsigned upload preset |
+| `file` | JPEG đã dùng cho lần nhận diện |
+
+Firmware lấy trường `secure_url` từ JSON response và dùng giá trị đó làm
+`image_url` trong event Firestore.
+
+### 3.2 Atomic commit lên Firestore
+
+Endpoint:
+
+```text
+POST projects/{projectId}/databases/(default)/documents:commit
+```
+
+Một commit chứa hai write: cập nhật `devices/{deviceId}` với `updateMask`, và
+tạo `devices/{deviceId}/events/{eventId}` với precondition `exists=false`.
+Firestore áp dụng cả hai write hoặc không áp dụng write nào, tránh lệch giữa
+trạng thái thiết bị và lịch sử event.
+
+Device write chỉ cập nhật các trường telemetry:
+
 ```json
 {
-  "fields": {
-    "device_id": { "stringValue": "STBIN_HCMUS_001" },
-    "status": { "stringValue": "online" },
-    "last_seen_at": { "timestampValue": "2026-07-19T15:20:00Z" },
-    "compartments": {
-      "mapValue": {
-        "fields": {
-          "plastic": { "integerValue": 20 },
-          "paper": { "integerValue": 80 },
-          "organic": { "integerValue": 65 }
-        }
-      }
+  "last_seen_at": "2026-07-21T10:20:30Z",
+  "firmware_version": "v3.0-arduino",
+  "ai_model_version": "waste_v3_int8",
+  "class_name": "paper",
+  "compartments": {
+    "organic": {
+      "fill_percent": 10.0,
+      "status": "normal"
+    },
+    "paper": {
+      "fill_percent": 10.0,
+      "status": "normal"
+    },
+    "plastic": {
+      "fill_percent": 10.0,
+      "status": "normal"
     }
   }
 }
 ```
 
-- - -
+`threshold`, `maintenance_mode`, `name` và `location` không bị ghi đè.
 
-**Nhận từ Cloud Firestore REST API — Đọc cấu hình điều khiển vi mô từ xa**
-- Mục đích: Lấy dữ liệu cấu hình riêng của thùng này về ngưỡng đầy (threshold) và chế độ bảo trì.
-- Phương thức HTTP: `GET` trên tài liệu gốc của thiết bị: `.../devices/{deviceId}`
+Event write được ghi đúng schema:
 
----
+```json
+{
+  "event_type": "CLASSIFY",
+  "waste_type": "paper",
+  "target_compartment": "paper",
+  "ai_confidence": 0.92,
+  "fill_percent": {
+    "organic": 10.0,
+    "paper": 10.0,
+    "plastic": 10.0
+  },
+  "alert_threshold": 80.0,
+  "device_timestamp": "2026-07-21T10:20:30Z",
+  "received_at": "2026-07-21T10:20:30Z",
+  "synced_late": false,
+  "firmware_version": "v3.0-arduino",
+  "ai_model_version": "waste_v3_int8",
+  "alert_status": null,
+  "resolved_at": null,
+  "resolved_by": null,
+  "image_url": "https://res.cloudinary.com/.../image/upload/...jpg"
+}
+```
 
-<h2><span style="color:#0047AB">3. HỆ THỐNG: CLOUD FIRESTORE REALTIME BACKEND</span></h2>
+Trên wire, firmware bọc từng giá trị bằng kiểu của Firestore REST API như
+`stringValue`, `doubleValue`, `timestampValue`, `booleanValue` và
+`mapValue`.
 
-**Quy trình xác thực phần cứng riêng biệt — Custom Token Exchange Flow**
-- Hành động: Thiết bị sử dụng DEVICE_ID kết hợp mã X-Provision-Secret để Backend cấp phát idToken ngắn hạn riêng biệt cho từng thùng, không dùng chung token.
+## 4. Xác thực và quyền ghi
 
-- - -
+Firmware ưu tiên custom-token flow qua backend. Với cấu hình prototype, firmware
+cũng có thể đăng nhập bằng `FIREBASE_USER_EMAIL` và
+`FIREBASE_USER_PASSWORD`.
 
-**Nhận từ các thiết bị — Dữ liệu Telemetry & Logs từ hàng trăm Node**
-- Mục đích: Phân định dữ liệu rõ ràng theo ID thiết bị dựa trên cấu trúc đường dẫn.
-- Đường dẫn cấu trúc tài liệu lưu trữ (Firestore Collections):
+ID token cuối cùng phải có custom claim `device_id` trùng
+`FIREBASE_DEVICE_ID`. Firestore Rules chỉ cho thiết bị:
 
-| Đường dẫn | Nội dung |
-|:---|:---|
-| `/devices/{deviceId}` | Quản lý trạng thái, telemetry đa ngăn và cấu hình của từng thùng |
-| `/devices/{deviceId}/events` | Bộ sưu tập sự kiện riêng biệt của từng thùng, phục vụ truy vấn báo cáo hiệu suất theo khu vực |
+- đọc và cập nhật đúng `devices/{deviceId}`;
+- cập nhật các trường telemetry được cho phép;
+- tạo event mới trong `devices/{deviceId}/events`;
+- không sửa hoặc xóa event cũ;
+- không sửa `threshold` và `maintenance_mode`.
 
----
+## 5. Log mong đợi khi test
+
+```text
+Test command received from Serial Monitor
+Test result: 2
+Enter F <plastic> <paper> <organic> to continue cloud sync
+Monitor fill levels plastic=10 paper=10 organic=10
+Cloudinary upload complete: ... JPEG bytes
+Cloudinary secure_url: https://res.cloudinary.com/...
+Firebase device authentication ready
+Firestore atomic commit: HTTP 200, event=evt_...
+```
+
+Mọi status trong khoảng `200..299` được firmware xem là thành công. Khi lỗi,
+firmware in tối đa 300 ký tự đầu của Firestore error response để chẩn đoán.

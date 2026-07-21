@@ -35,7 +35,7 @@ service cloud.firestore {
       // admin-configured threshold/maintenance_mode fields.
       allow update: if isDevice(deviceId)
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['fill_percent', 'status', 'compartments', 'last_seen_at', 'firmware_version', 'ai_model_version'])
+             .hasOnly(['fill_percent', 'status', 'compartments', 'last_seen_at', 'firmware_version', 'ai_model_version', 'class_name'])
         && compartmentThresholdsUnchanged()
         && maintenanceModeUnchanged();
 
