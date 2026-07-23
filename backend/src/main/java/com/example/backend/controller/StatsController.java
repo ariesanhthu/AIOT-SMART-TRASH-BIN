@@ -24,9 +24,14 @@ public class StatsController {
     @GetMapping
     public List<DailyStatResponse> getDailyStats(
             @RequestParam String deviceId,
-            @RequestParam String from,
-            @RequestParam String to
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to,
+            @RequestParam(required = false) String date
     ) {
+        if (date != null && !date.isBlank()) {
+            from = date;
+            to = date;
+        }
         return statsService.getDailyStats(deviceId, from, to);
     }
 

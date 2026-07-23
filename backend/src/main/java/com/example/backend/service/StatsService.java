@@ -29,10 +29,16 @@ public class StatsService {
 
     public List<DailyStatResponse> getDailyStats(String deviceId, String from, String to) {
         Query query = firestore.collection("daily_stats")
-                .whereEqualTo("device_id", deviceId)
-                .whereGreaterThanOrEqualTo("date", from)
-                .whereLessThanOrEqualTo("date", to)
-                .orderBy("date", Query.Direction.ASCENDING);
+                .whereEqualTo("device_id", deviceId);
+
+        if (from != null && !from.isBlank()) {
+            query = query.whereGreaterThanOrEqualTo("date", from);
+        }
+        if (to != null && !to.isBlank()) {
+            query = query.whereLessThanOrEqualTo("date", to);
+        }
+
+        query = query.orderBy("date", Query.Direction.ASCENDING);
 
         QuerySnapshot snapshot;
         try {
