@@ -613,7 +613,7 @@
     /* ============================================================
        INPUT FIELDS
     ============================================================ */
-    .-field {
+    .input-field {
       width: 100%;
       background: var(--surface-container-lowest);
       border: 1px solid #E3E8E1;
@@ -637,7 +637,7 @@
       cursor: pointer;
       appearance: auto;
     }
-input
+
     /* ============================================================
        RANGE SLIDER
     ============================================================ */
@@ -1103,3 +1103,80 @@ input
       }
     }
     .mobile-toggle { display: none; }
+
+    /* ============================================================
+       LOGIN PAGE
+    ============================================================ */
+    .login-shell {
+      min-height: 100vh;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface-container-low);
+      padding: 16px;
+    }
+    .login-card {
+      width: 100%;
+      max-width: 380px;
+      padding: 32px;
+    }
+    .login-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    .login-field-group {
+      margin-bottom: 18px;
+    }
+    .login-label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--on-surface);
+      font-weight: 500;
+    }
+    .login-input-wrap {
+      position: relative;
+    }
+    .login-input-wrap .input-field {
+      padding-right: 42px;
+    }
+    .login-password-toggle {
+      position: absolute;
+      top: 50%;
+      right: 4px;
+      transform: translateY(-50%);
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      border-radius: var(--radius-sm);
+      color: var(--outline);
+      cursor: pointer;
+      transition: color 0.15s ease, background 0.15s ease;
+    }
+    .login-password-toggle:hover {
+      color: var(--primary-container);
+      background: var(--surface-container);
+    }
+    .login-error {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 18px;
+      padding: 10px 12px;
+      border-radius: var(--radius);
+      background: var(--error-container);
+      color: var(--on-error-container);
+      font-size: 13px;
+      line-height: 18px;
+    }
+    .login-submit {
+      width: 100%;
+      justify-content: center;
+      padding: 11px 16px;
+    }
