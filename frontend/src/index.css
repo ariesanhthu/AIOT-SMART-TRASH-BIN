@@ -404,6 +404,14 @@
       grid-template-columns: 2fr 1fr;
       gap: var(--container-gap);
     }
+    .config-page-center {
+      display: flex;
+      justify-content: center;
+    }
+    .config-panel {
+      width: 100%;
+      max-width: 560px;
+    }
 
     @media (max-width: 1024px) {
       .grid-4 { grid-template-columns: repeat(2, 1fr); }
