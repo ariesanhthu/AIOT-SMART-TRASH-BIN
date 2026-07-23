@@ -1,0 +1,8 @@
+$kind: http-request
+name: 'API 2.1 - Lấy danh sách tất cả các thùng rác'
+method: GET
+url: 'http://localhost:8080/api/devices'
+order: 1000
+headers:
+  - key: Accept
+    value: application/json
