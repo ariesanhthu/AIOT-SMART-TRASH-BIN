@@ -1,6 +1,7 @@
 package com.example.backend.controller;
 
 import com.example.backend.dto.request.UpdateDeviceConfigRequest;
+import com.example.backend.dto.response.DeviceConfigResponse;
 import com.example.backend.dto.response.DeviceResponse;
 import com.example.backend.service.DeviceService;
 
@@ -45,5 +46,15 @@ public class DeviceController {
         String email = (String) httpRequest.getAttribute("email");
         deviceService.updateConfig(deviceId, request, email);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * ESP32 firmware GETs this endpoint to pull its operational configuration
+     * (thresholds + maintenance_mode) from Firestore via the Backend API.
+     * GET is open — no auth token required (consistent with FirebaseAuthFilter policy).
+     */
+    @GetMapping("/{deviceId}/config")
+    public DeviceConfigResponse getConfig(@PathVariable String deviceId) {
+        return deviceService.getDeviceConfig(deviceId);
     }
 }

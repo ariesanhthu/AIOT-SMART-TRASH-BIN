@@ -35,8 +35,12 @@ public class FirebaseAuthFilter extends OncePerRequestFilter {
         // (đó chính là mục đích của endpoint này) — xác thực bằng
         // provisioning secret trong DeviceAuthService thay vì filter này.
         boolean isDeviceProvisioning = path.matches(DEVICE_AUTH_TOKEN_PATTERN);
+        // ESP32 event ingestion — authenticated by DeviceTokenFilter (Device JWT),
+        // not by Firebase ID Token. Exclude from this filter so both can coexist.
+        boolean isDeviceEventIngestion = path.matches("^/api/devices/[^/]+/events$")
+                && "POST".equalsIgnoreCase(request.getMethod());
         // Chỉ áp dụng filter cho request ghi vào /api/**
-        return isDeviceProvisioning || !(isApi && isWrite);
+        return isDeviceProvisioning || isDeviceEventIngestion || !(isApi && isWrite);
     }
 
     @Override

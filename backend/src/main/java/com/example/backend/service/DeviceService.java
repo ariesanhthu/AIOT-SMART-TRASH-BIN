@@ -1,6 +1,7 @@
 package com.example.backend.service;
 
 import com.example.backend.dto.request.UpdateDeviceConfigRequest;
+import com.example.backend.dto.response.DeviceConfigResponse;
 import com.example.backend.dto.response.DeviceResponse;
 import com.example.backend.exception.DeviceNotFoundException;
 import com.example.backend.model.Device;
@@ -126,6 +127,51 @@ public class DeviceService {
                 device.getAiModelVersion(),
                 device.getClassName(),
                 device.getCompartments()
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // ESP32 config pull — returns thresholds + maintenance_mode from Firestore
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Called by GET /api/devices/{deviceId}/config.
+     * ESP32 firmware calls this to piggyback configuration reading alongside
+     * event posting (mục 2.2 in De_xuat_thiet_ke_DB.md).
+     */
+    public DeviceConfigResponse getDeviceConfig(String deviceId) {
+        DocumentSnapshot snapshot;
+        try {
+            snapshot = firestore.collection(COLLECTION).document(deviceId).get().get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Bị gián đoạn khi đọc Firestore", e);
+        } catch (ExecutionException e) {
+            log.error("Lỗi khi đọc Firestore", e.getCause());
+            throw new RuntimeException("Lỗi khi đọc Firestore", e.getCause());
+        }
+
+        if (!snapshot.exists()) {
+            throw new DeviceNotFoundException(deviceId);
+        }
+
+        Device device = snapshot.toObject(Device.class);
+        if (device == null) {
+            throw new DeviceNotFoundException(deviceId);
+        }
+
+        Map<String, Double> thresholds = new HashMap<>();
+        if (device.getCompartments() != null) {
+            device.getCompartments().forEach((type, comp) -> {
+                double threshold = comp.getThreshold() != null ? comp.getThreshold() : 0.8;
+                thresholds.put(type, threshold);
+            });
+        }
+
+        return new DeviceConfigResponse(
+                deviceId,
+                Boolean.TRUE.equals(device.getMaintenanceMode()),
+                thresholds
         );
     }
 }

@@ -1,0 +1,8 @@
+$kind: http-request
+name: 'API 1.2 - [ESP32] Lấy cấu hình thiết bị (Config Pull)'
+method: GET
+url: 'http://localhost:8080/api/devices/STBIN_HCMUS_001/config'
+order: 300
+headers:
+  - key: Accept
+    value: application/json

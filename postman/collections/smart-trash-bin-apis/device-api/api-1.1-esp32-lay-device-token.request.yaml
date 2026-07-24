@@ -1,0 +1,8 @@
+$kind: http-request
+name: 'API 1.1 - [ESP32] Lấy Device Token (Bootstrap)'
+method: POST
+url: 'http://localhost:8080/api/devices/STBIN_HCMUS_001/auth-token'
+order: 200
+headers:
+  - key: X-Provision-Secret
+    value: '{{provisionSecret}}'
