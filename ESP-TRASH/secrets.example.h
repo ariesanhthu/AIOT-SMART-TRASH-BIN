@@ -13,25 +13,17 @@
 #define CLOUDINARY_CLOUD_NAME ""
 #define CLOUDINARY_UPLOAD_PRESET ""
 
-// Firebase device authentication and direct Firestore REST access.
-#ifndef FIREBASE_PROJECT_ID
-#define FIREBASE_PROJECT_ID "smart-trash-bin-828c1"
-#endif
-#ifndef FIREBASE_API_KEY
-#define FIREBASE_API_KEY ""
-#endif
-#ifndef FIREBASE_DATABASE_URL
-#define FIREBASE_DATABASE_URL "" // Realtime DB only; Firestore does not use it.
-#endif
+// Backend device authentication. The device exchanges DEVICE_PROVISION_SECRET
+// for a short-lived device JWT (POST /api/devices/{deviceId}/auth-token),
+// then uses that JWT as a bearer token against
+// POST /api/devices/{deviceId}/events. Never put the backend's JWT *signing*
+// secret (device.jwt.secret) here — only the provisioning secret.
 #ifndef BACKEND_BASE_URL
 #define BACKEND_BASE_URL ""
 #endif
-#ifndef PROVISION_SECRET
-#define PROVISION_SECRET ""
+#ifndef DEVICE_PROVISION_SECRET
+#define DEVICE_PROVISION_SECRET ""
 #endif
 
-// Prototype fallback when the Firebase user already has a device_id custom
-// claim matching FIREBASE_DEVICE_ID. Prefer backend custom-token auth above.
-#define FIREBASE_USER_EMAIL ""
-#define FIREBASE_USER_PASSWORD ""
+// Optional override of the device id derived from network_config::kDeviceId.
 #define FIREBASE_DEVICE_ID "esp32cam-01"

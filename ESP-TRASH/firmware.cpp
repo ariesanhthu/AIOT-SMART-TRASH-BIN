@@ -111,6 +111,7 @@ namespace aiot
     volatile WifiState g_wifi_state = WifiState::kIdle;
     std::uint32_t g_last_camera_service_attempt_ms = 0;
     CompartmentFillLevels g_fill_levels;
+    CompartmentAlertState g_alert_state;
 
     constexpr std::uint32_t kCameraServiceRetryIntervalMs = 5000;
 
@@ -1092,6 +1093,8 @@ namespace aiot
                                        ? telemetry.classification.confidence
                                        : 0.0F;
     cloud_recognition.has_classification = telemetry.has_classification;
-    SyncRecognitionToCloud(cloud_recognition, g_fill_levels);
+    const String image_url = UploadRecognitionImage(cloud_recognition);
+    SyncRecognitionToCloud(cloud_recognition, g_fill_levels, image_url);
+    SendFullAlertsIfNeeded(g_fill_levels, &g_alert_state, image_url.c_str());
   }
 } // namespace aiot

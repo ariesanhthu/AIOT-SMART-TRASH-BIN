@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include <WString.h>
+
 namespace aiot
 {
   struct CompartmentFillLevels
@@ -11,6 +13,16 @@ namespace aiot
     std::uint8_t paper = 0;
     std::uint8_t organic = 0;
     bool received = false;
+  };
+
+  // Per-compartment "already alerted" latch, owned by the caller (firmware.cpp)
+  // and passed into SendFullAlertsIfNeeded() to debounce repeated FULL_ALERT
+  // events while a compartment stays over threshold.
+  struct CompartmentAlertState
+  {
+    bool organic_alerted = false;
+    bool paper_alerted = false;
+    bool plastic_alerted = false;
   };
 
   struct CloudRecognition
@@ -22,11 +34,25 @@ namespace aiot
     bool has_classification = false;
   };
 
-  // Synchronizes UTC for TLS verification and Firestore timestamp fields.
+  // Synchronizes UTC for TLS verification and backend event timestamp fields.
   bool InitializeCloudClock();
 
-  // Uploads the JPEG to Cloudinary, then updates the Firestore device and
-  // appends one CLASSIFY/ERROR event containing the resulting image URL.
+  // Uploads the JPEG to Cloudinary (if configured) and returns the resulting
+  // secure_url, or an empty string if upload was skipped/failed.
+  String UploadRecognitionImage(const CloudRecognition &recognition);
+
+  // Posts one CLASSIFY/ERROR event to the backend's device-events endpoint.
   bool SyncRecognitionToCloud(const CloudRecognition &recognition,
-                              const CompartmentFillLevels &fill_levels);
+                              const CompartmentFillLevels &fill_levels,
+                              const String &image_url);
+
+  // Compares fill_levels against network_config::kFullThresholdPercent per
+  // compartment; posts one FULL_ALERT event per compartment that just crossed
+  // the threshold (and isn't already latched in alert_state), and clears the
+  // latch for compartments that have dropped back below threshold so a future
+  // crossing re-alerts. Returns the number of FULL_ALERT events sent
+  // successfully (may legitimately be 0).
+  int SendFullAlertsIfNeeded(const CompartmentFillLevels &fill_levels,
+                             CompartmentAlertState *alert_state,
+                             const char *image_url);
 } // namespace aiot
