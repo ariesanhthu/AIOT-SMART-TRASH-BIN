@@ -14,7 +14,7 @@
 namespace aiot {
 
 struct ClassificationResult {
-  model_contract::WasteClass predicted = model_contract::WasteClass::kOrganic;
+  model_contract::WasteClass predicted = model_contract::WasteClass::kOther;
   std::array<float, model_contract::kClassCount> probabilities{};
   float confidence = 0.0F;
   std::int64_t inference_time_us = 0;

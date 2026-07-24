@@ -1,0 +1,8 @@
+$kind: http-request
+name: 'API 2.2 - Lấy thông tin chi tiết 1 thùng rác'
+method: GET
+url: 'http://localhost:8080/api/devices/STBIN_HCMUS_001'
+order: 2000
+headers:
+  - key: Accept
+    value: application/json

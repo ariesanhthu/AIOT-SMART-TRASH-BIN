@@ -1,6 +1,7 @@
 # ESP-TRASH - ESP32-CAM AI Thinker + Arduino Nano
 
-Firmware chạy model TinyCNN V3 full INT8 cục bộ để phân loại `paper`, `plastic`, `organic`.
+Firmware chạy model TinyCNN V4 full INT8 cục bộ để phân loại `paper`, `plastic`,
+`organic` và từ chối `other`.
 Nano gửi lệnh chụp, ESP32-CAM trả kết quả qua UART ngay sau inference, sau đó
 gửi chính ảnh đã nhận diện và metadata AI về FastAPI qua Wi-Fi.
 
@@ -61,7 +62,7 @@ ESP trả:
 
 | Kết quả | Ý nghĩa |
 | --- | --- |
-| `C 0\n` | Camera/model/ảnh/tiền xử lý/suy luận lỗi |
+| `C 0\n` | Lỗi pipeline hoặc model dự đoán `other`; Nano không định tuyến vào ngăn |
 | `C 1\n` | Nhựa (`plastic`) |
 | `C 2\n` | Giấy (`paper`) |
 | `C 3\n` | Hữu cơ (`organic`) |
@@ -86,14 +87,15 @@ firmware mới gọi Firestore `documents:commit`. Commit cập nhật
 
 ## Pipeline AI
 
-- Model nguồn: `AI/V3/artifacts/model_int8.tflite`, 62,496 byte, SHA-256
-  `5e543adfcd64a5627015e0e770fa8b1638d1febaefea2f105fb383707019826a`.
+- Model nguồn: `AI/V4/artifacts/model_int8.tflite`, 62,600 byte, SHA-256
+  `64df4971dc9b208b2400b8bbc1a608a55164e3342d22ac178b4dc2bb9d0a06f2`.
 - Input INT8 `[1, 96, 96, 3]`, RGB, scale `1/255`, zero point `-128`.
-- Output INT8 `[1, 3]`, scale `0.05487526208162308`, zero point `-27`:
-  `paper`, `plastic`, `organic`.
+- Output INT8 `[1, 4]`, scale `0.05950229614973068`, zero point `-27`:
+  `paper`, `plastic`, `organic`, `other`.
 - QVGA RGB565 -> center crop -> nearest-neighbor 96 x 96 -> quantize trực tiếp.
 - TFLite Micro/ESP-NN, dequantize logits và stable-softmax.
-- Mapping UART: `C 1` là plastic, `C 2` là paper, `C 3` là organic.
+- Mapping UART: `C 1` là plastic, `C 2` là paper, `C 3` là organic;
+  `other` trả `C 0` để không mở nhầm ngăn.
 - Tensor arena 256 KiB được cấp một lần trong PSRAM.
 
 Mỗi framebuffer được dùng cho cả input AI và JPEG telemetry, rồi trả lại camera

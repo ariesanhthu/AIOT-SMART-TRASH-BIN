@@ -1,0 +1,65 @@
+{
+  "v3_source": "F:\\ANHTHU\\1-HCMUS\\1 - STUDY\\0-now\\AIOT\\PROJECT\\CODE\\AIOT-SMART-TRASH-BIN\\AI\\V3\\dataset_prepared",
+  "trashnet_source": "F:\\ANHTHU\\1-HCMUS\\1 - STUDY\\0-now\\AIOT\\PROJECT\\CODE\\AIOT-SMART-TRASH-BIN\\AI\\trashnet\\data\\dataset-resized\\dataset-resized",
+  "output": "F:\\ANHTHU\\1-HCMUS\\1 - STUDY\\0-now\\AIOT\\PROJECT\\CODE\\AIOT-SMART-TRASH-BIN\\AI\\V4\\dataset_prepared",
+  "seed": 42,
+  "labels": [
+    "paper",
+    "plastic",
+    "organic",
+    "other"
+  ],
+  "prepared_counts": {
+    "train": {
+      "paper": 440,
+      "plastic": 160,
+      "organic": 180,
+      "other": 260
+    },
+    "validation": {
+      "paper": 15,
+      "plastic": 5,
+      "organic": 5,
+      "other": 9
+    },
+    "test": {
+      "paper": 11,
+      "plastic": 4,
+      "organic": 4,
+      "other": 6
+    }
+  },
+  "prepared_total": 1099,
+  "other_source_counts": {
+    "train": {
+      "cardboard": 130,
+      "metal": 130
+    },
+    "validation": {
+      "cardboard": 5,
+      "metal": 4
+    },
+    "test": {
+      "cardboard": 3,
+      "metal": 3
+    }
+  },
+  "other_selection": "Train other count equals the arithmetic mean of the three V3 train class counts; validation and test approximate their split means.",
+  "train_balance": {
+    "minimum": 160,
+    "maximum": 440,
+    "other_vs_existing_mean": 1.0
+  },
+  "esp_simulation": {
+    "split": "train_only",
+    "count": 65,
+    "fraction_of_other_train": 0.25,
+    "resolution": [
+      320,
+      240
+    ],
+    "color": "RGB565-like low-bit truncation plus mild sensor color/noise variation",
+    "validation_and_test_modified": false
+  },
+  "leakage_control": "All V3 splits are preserved. Each selected TrashNet source appears in exactly one split; ESP simulation replaces only its train copy."
+}

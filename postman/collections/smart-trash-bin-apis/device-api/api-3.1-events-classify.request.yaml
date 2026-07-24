@@ -1,0 +1,8 @@
+$kind: http-request
+name: 'API 3.1 - Lấy sự kiện phân loại (CLASSIFY) của 1 thùng rác'
+method: GET
+url: 'http://localhost:8080/api/devices/STBIN_HCMUS_001/events?eventType=CLASSIFY&limit=20'
+order: 4000
+headers:
+  - key: Accept
+    value: application/json

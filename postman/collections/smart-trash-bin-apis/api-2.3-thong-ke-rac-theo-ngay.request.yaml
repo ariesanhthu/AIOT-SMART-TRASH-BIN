@@ -1,0 +1,10 @@
+$kind: http-request
+name: 'API 2.3 - Thống kê rác theo ngày cho 1 thùng rác'
+method: GET
+url: 'http://localhost:8080/api/daily-stats?deviceId=STBIN_HCMUS_001&date=2026-07-20'
+order: 3000
+headers:
+  - key: Accept
+    value: application/json
+
+
