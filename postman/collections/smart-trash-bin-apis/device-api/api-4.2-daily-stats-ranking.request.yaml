@@ -1,0 +1,8 @@
+$kind: http-request
+name: 'API 4.2 - Xếp hạng thùng rác theo tổng lượng rác (7 ngày)'
+method: GET
+url: 'http://localhost:8080/api/daily-stats/ranking?days=7'
+order: 5500
+headers:
+  - key: Accept
+    value: application/json

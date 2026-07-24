@@ -23,20 +23,27 @@ public class DailyStat {
     @PropertyName("organic_count")
     public Long getOrganicCount() { return organicCount; }
     @PropertyName("organic_count")
-    public void setOrganicCount(Long organicCount) { this.organicCount = organicCount; }
+    public void setOrganicCount(Object value) { this.organicCount = toLong(value); }
 
     @PropertyName("paper_count")
     public Long getPaperCount() { return paperCount; }
     @PropertyName("paper_count")
-    public void setPaperCount(Long paperCount) { this.paperCount = paperCount; }
+    public void setPaperCount(Object value) { this.paperCount = toLong(value); }
 
     @PropertyName("plastic_count")
     public Long getPlasticCount() { return plasticCount; }
     @PropertyName("plastic_count")
-    public void setPlasticCount(Long plasticCount) { this.plasticCount = plasticCount; }
+    public void setPlasticCount(Object value) { this.plasticCount = toLong(value); }
 
     @PropertyName("total_count")
     public Long getTotalCount() { return totalCount; }
     @PropertyName("total_count")
-    public void setTotalCount(Long totalCount) { this.totalCount = totalCount; }
-}
+    public void setTotalCount(Object value) { this.totalCount = toLong(value); }
+
+    private static Long toLong(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        return null;
+    }
+}

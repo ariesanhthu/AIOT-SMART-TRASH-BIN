@@ -1,0 +1,16 @@
+$kind: http-request
+name: '[AUTH] Đăng nhập Firebase - Lấy Bearer Token'
+method: POST
+url: 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=AIzaSyAroHY455vzpfHCHP96CIzJq4UDYZqZ-qE'
+order: 100
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  mode: raw
+  raw: |
+    {
+      "email": "npmthu.se@gmail.com",
+      "password": "test123@",
+      "returnSecureToken": true
+    }

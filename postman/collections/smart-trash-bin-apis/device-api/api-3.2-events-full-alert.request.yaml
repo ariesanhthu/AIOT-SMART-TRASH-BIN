@@ -1,0 +1,8 @@
+$kind: http-request
+name: 'API 3.2 - Lấy sự kiện cảnh báo đầy (FULL_ALERT) của 1 thùng rác'
+method: GET
+url: 'http://localhost:8080/api/devices/STBIN_HCMUS_001/events?eventType=FULL_ALERT&limit=50'
+order: 4500
+headers:
+  - key: Accept
+    value: application/json

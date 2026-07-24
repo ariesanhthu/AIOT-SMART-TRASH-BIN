@@ -1,0 +1,8 @@
+$kind: http-request
+name: 'API 4.1 - Thống kê tổng hợp toàn hệ thống theo ngày'
+method: GET
+url: 'http://localhost:8080/api/daily-stats/summary?date=2026-07-20'
+order: 5000
+headers:
+  - key: Accept
+    value: application/json

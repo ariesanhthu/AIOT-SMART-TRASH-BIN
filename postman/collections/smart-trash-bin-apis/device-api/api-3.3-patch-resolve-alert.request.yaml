@@ -1,0 +1,10 @@
+$kind: http-request
+name: '[PATCH] Giải quyết cảnh báo đầy (Resolve Alert)'
+method: PATCH
+url: 'http://localhost:8080/api/devices/STBIN_HCMUS_001/events/{{eventId}}/resolve'
+order: 4800
+headers:
+  - key: Accept
+    value: application/json
+  - key: Authorization
+    value: 'Bearer {{bearerToken}}'
