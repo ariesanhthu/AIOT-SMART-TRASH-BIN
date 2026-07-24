@@ -110,9 +110,12 @@ namespace aiot
     bool g_mdns_ready = false;
     volatile WifiState g_wifi_state = WifiState::kIdle;
     std::uint32_t g_last_camera_service_attempt_ms = 0;
+    std::uint32_t g_last_nano_ready_response_ms = 0;
     CompartmentFillLevels g_fill_levels;
+    bool g_nano_transaction_active = false;
 
     constexpr std::uint32_t kCameraServiceRetryIntervalMs = 5000;
+    constexpr std::uint32_t kNanoReadyResponseMinIntervalMs = 500;
 
     void LogMemory(const char *const stage)
     {
@@ -137,6 +140,48 @@ namespace aiot
       return command != nullptr &&
              std::sscanf(command, "T %u %c", &trigger, &extra) == 1 &&
              trigger == 1U;
+    }
+
+    bool ParseNanoReadyProbe(const char *const command)
+    {
+      return command != nullptr && std::strcmp(command, "H 1") == 0;
+    }
+
+    void SendNanoMessage(const char *const prefix, const unsigned value)
+    {
+      g_nano_serial.print(prefix);
+      g_nano_serial.print(' ');
+      g_nano_serial.println(value);
+      g_nano_serial.flush();
+    }
+
+    void SendNanoAck(const char command_type)
+    {
+      g_nano_serial.print("A ");
+      g_nano_serial.println(command_type);
+      g_nano_serial.flush();
+    }
+
+    bool SendNanoReadyState()
+    {
+      const std::uint32_t now = millis();
+      if (g_last_nano_ready_response_ms != 0U &&
+          now - g_last_nano_ready_response_ms <
+              kNanoReadyResponseMinIntervalMs)
+      {
+        return false;
+      }
+      g_last_nano_ready_response_ms = now;
+      SendNanoMessage("R", g_nano_transaction_active ? 0U : 1U);
+      return true;
+    }
+
+    void FinishNanoTransaction(const bool cloud_synced)
+    {
+      g_nano_transaction_active = false;
+      SendNanoMessage("D", cloud_synced ? 1U : 0U);
+      Serial.printf("Nano transaction finished: cloud=%s\n",
+                    cloud_synced ? "ok" : "failed");
     }
 
     bool ParseNanoFillLevels(const char *const command,
@@ -167,8 +212,28 @@ namespace aiot
 
     bool HandleNanoCommandLine(const char *const command)
     {
+      if (ParseNanoReadyProbe(command))
+      {
+        if (SendNanoReadyState())
+        {
+          Serial.printf("Nano ready probe -> R %u\n",
+                        g_nano_transaction_active ? 0U : 1U);
+        }
+        return false;
+      }
+
       if (ParseNanoTrigger(command))
       {
+        // ACK is sent before camera/inference so the Nano can distinguish an
+        // accepted trigger from a disconnected UART. Repeated T 1 is ACKed but
+        // does not start a second capture while this transaction is active.
+        SendNanoAck('T');
+        if (g_nano_transaction_active)
+        {
+          Serial.println("Duplicate Nano trigger ACKed and ignored");
+          return false;
+        }
+        g_nano_transaction_active = true;
         return true;
       }
 
@@ -176,6 +241,7 @@ namespace aiot
       if (ParseNanoFillLevels(command, &levels))
       {
         g_fill_levels = levels;
+        SendNanoAck('F');
         Serial.printf(
             "Nano fill levels plastic=%u paper=%u organic=%u\n",
             static_cast<unsigned>(g_fill_levels.plastic),
@@ -1013,8 +1079,9 @@ namespace aiot
     }
 
     MaintainCameraWebServices();
+    SendNanoReadyState();
     Serial.println(
-        "Waiting for Nano T 1 or Serial Monitor 1 T 1 WIFI_RESET");
+        "ESP ready (R 1); waiting for Nano T 1 or Serial Monitor 1 T 1 WIFI_RESET");
   }
 
   void LoopFirmware()
@@ -1046,15 +1113,17 @@ namespace aiot
       Serial.println("Test command received from Serial Monitor");
     }
 
+    // Discard any standalone/stale F received before this accepted T 1. Only
+    // the F sent by Nano after C belongs to this recognition event.
+    g_fill_levels.received = false;
+
     RecognitionTelemetry telemetry;
     const NanoResult result = CaptureAndClassify(&telemetry);
-    g_fill_levels.received = false;
 
     if (command_from_nano)
     {
       // Chỉ gửi kết quả 0-3 về Nano khi Nano là bên yêu cầu.
-      g_nano_serial.print("C ");
-      g_nano_serial.println(static_cast<std::uint8_t>(result));
+      SendNanoMessage("C", static_cast<std::uint8_t>(result));
 
       Serial.printf(
           "Result sent to Nano: %u\n",
@@ -1075,23 +1144,34 @@ namespace aiot
                                           : WaitForMonitorFillLevels();
     if (!fill_levels_received)
     {
+      if (command_from_nano)
+      {
+        FinishNanoTransaction(false);
+      }
       return;
     }
 
+    bool cloud_synced = false;
     if (!EnsureWifiConnected())
     {
       Serial.println("Cloud sync skipped: Wi-Fi unavailable");
-      return;
+    }
+    else
+    {
+      CloudRecognition cloud_recognition{};
+      cloud_recognition.jpeg_data = telemetry.jpeg_data;
+      cloud_recognition.jpeg_length = telemetry.jpeg_length;
+      cloud_recognition.waste_type = NanoResultWasteType(result);
+      cloud_recognition.confidence = telemetry.has_classification
+                                         ? telemetry.classification.confidence
+                                         : 0.0F;
+      cloud_recognition.has_classification = telemetry.has_classification;
+      cloud_synced = SyncRecognitionToCloud(cloud_recognition, g_fill_levels);
     }
 
-    CloudRecognition cloud_recognition{};
-    cloud_recognition.jpeg_data = telemetry.jpeg_data;
-    cloud_recognition.jpeg_length = telemetry.jpeg_length;
-    cloud_recognition.waste_type = NanoResultWasteType(result);
-    cloud_recognition.confidence = telemetry.has_classification
-                                       ? telemetry.classification.confidence
-                                       : 0.0F;
-    cloud_recognition.has_classification = telemetry.has_classification;
-    SyncRecognitionToCloud(cloud_recognition, g_fill_levels);
+    if (command_from_nano)
+    {
+      FinishNanoTransaction(cloud_synced);
+    }
   }
 } // namespace aiot

@@ -51,8 +51,9 @@ Không dùng microSD vì GPIO13/14 dành cho UART. Cấu hình: 9600 baud, 8N1.
 Nano có thể gửi:
 
 ```cpp
+Serial.println("H 1");         // hỏi ESP đã khởi tạo xong và sẵn sàng chưa
 Serial.println("T 1");         // trigger chụp ảnh và chạy AI
-Serial.println("F 20 80 65");  // độ đầy: nhựa, giấy, hữu cơ
+Serial.println("F 20 80 65");  // sau khi xử lý: độ đầy nhựa, giấy, hữu cơ
 ```
 
 Mỗi lệnh kết thúc bằng `\n`. Giao thức chỉ dùng chữ, số và dấu cách; không dùng
@@ -60,12 +61,37 @@ dấu ngoặc góc, dấu phẩy hoặc dấu hai chấm. Giá trị `F` phải 
 
 ESP trả:
 
-| Kết quả | Ý nghĩa |
+| Phản hồi | Ý nghĩa |
 | --- | --- |
+| `R 1\n` | ESP đã khởi tạo xong và đang rảnh |
+| `R 0\n` | ESP đang xử lý transaction trước |
+| `A T\n` | Đã nhận trigger; bắt đầu chụp và phân loại |
 | `C 0\n` | Lỗi pipeline hoặc model dự đoán `other`; Nano không định tuyến vào ngăn |
 | `C 1\n` | Nhựa (`plastic`) |
 | `C 2\n` | Giấy (`paper`) |
 | `C 3\n` | Hữu cơ (`organic`) |
+| `A F\n` | Đã nhận đủ ba mức đầy từ Nano |
+| `D 1\n` | Cloudinary và Firestore thành công; ESP đã rảnh |
+| `D 0\n` | Đồng bộ cloud thất bại nhưng ESP đã rảnh |
+
+Luồng UART đầy đủ:
+
+```text
+Nano -- H 1 ----------> ESP
+Nano <- R 1 ----------- ESP
+Nano -- T 1 ----------> ESP
+Nano <- A T ----------- ESP
+Nano <- C <0..3> ------ ESP
+Nano xử lý servo/cảnh báo và đo lại ba ngăn
+Nano -- F <p> <pa> <o> -> ESP
+Nano <- A F ----------- ESP
+ESP upload Cloudinary rồi commit Firestore
+Nano <- D <0|1> ------- ESP
+```
+
+Nano chỉ trigger sau `R 1`, gửi lại `T`/`F` tối đa ba lần nếu mất ACK và luôn
+gửi `F` kể cả khi nhận `C 0`. ESP bỏ qua trigger lặp khi transaction đang chạy,
+do đó gói retry không tạo thêm lần chụp ngoài ý muốn.
 
 Serial Monitor 115200 baud test được toàn bộ cloud pipeline:
 

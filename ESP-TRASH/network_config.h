@@ -17,7 +17,9 @@ inline constexpr std::uint32_t kCloudHttpTimeoutMs = 15000;
 inline constexpr int kCloudHttpReceiveBufferBytes = 2048;
 inline constexpr int kCloudHttpTransmitBufferBytes = 4096;
 inline constexpr std::uint32_t kClockSyncTimeoutMs = 10000;
-inline constexpr std::uint32_t kNanoFillTimeoutMs = 15000;
+// Nano may hold a servo open for 5 seconds before measuring all compartments.
+// Leave enough margin for sensor retries and an F packet retransmission.
+inline constexpr std::uint32_t kNanoFillTimeoutMs = 30000;
 inline constexpr std::uint32_t kMonitorFillTimeoutMs = 60000;
 inline constexpr std::uint32_t kFirebaseTokenRefreshMs = 55U * 60U * 1000U;
 inline constexpr std::time_t kMinimumValidEpoch = 1700000000;
