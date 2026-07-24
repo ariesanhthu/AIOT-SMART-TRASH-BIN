@@ -32,7 +32,21 @@ function App() {
   // Chờ Firebase xác định xong trạng thái đăng nhập trước khi quyết định
   // hiện Login hay Dashboard — tránh nháy màn hình Login rồi bật lại Dashboard.
   if (authLoading) {
-    return <div style={{ padding: 40 }}>Đang kiểm tra đăng nhập...</div>;
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '100%',
+        height: '100vh',
+        gap: 12,
+        color: 'var(--on-surface)',
+      }}>
+        <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: 28 }}></i>
+        <span>Đang kiểm tra đăng nhập...</span>
+      </div>
+    );
   }
 
   if (!user) {
@@ -40,7 +54,21 @@ function App() {
   }
 
   if (binsLoading) {
-    return <div style={{ padding: 40 }}>Đang tải dữ liệu thiết bị...</div>;
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '100%',
+        height: '100vh',
+        gap: 12,
+        color: 'var(--on-surface)',
+      }}>
+        <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: 28 }}></i>
+        <span>Đang tải dữ liệu thiết bị...</span>
+      </div>
+    );
   }
 
   const renderPage = () => {
