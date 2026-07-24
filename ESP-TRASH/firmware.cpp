@@ -69,7 +69,7 @@ namespace aiot
     };
 
     // This is the wire protocol expected by the Nano. It intentionally differs
-    // from the model label indices (paper=0, plastic=1, organic=2).
+    // from the model label indices (paper=0, plastic=1, organic=2, other=3).
     enum class NanoResult : std::uint8_t
     {
       kNotRecognized = 0,
@@ -242,6 +242,8 @@ namespace aiot
         return NanoResult::kPlastic;
       case model_contract::WasteClass::kOrganic:
         return NanoResult::kOrganic;
+      case model_contract::WasteClass::kOther:
+        return NanoResult::kNotRecognized;
       }
       return NanoResult::kNotRecognized;
     }
@@ -257,9 +259,9 @@ namespace aiot
       case NanoResult::kOrganic:
         return "organic";
       case NanoResult::kNotRecognized:
-        return "unknown";
+        return nullptr;
       }
-      return "unknown";
+      return nullptr;
     }
 
     bool WaitForNanoFillLevels()
@@ -661,7 +663,7 @@ namespace aiot
       const ClassificationResult &result = telemetry->classification;
       Serial.printf(
           "Frame=%ux%u/%uB JPEG=%uB class=%s confidence=%.4f "
-          "p=[paper %.4f, plastic %.4f, organic %.4f] inference=%" PRId64
+          "p=[paper %.4f, plastic %.4f, organic %.4f, other %.4f] inference=%" PRId64
           " us -> Nano=%u\n",
           telemetry->frame_width, telemetry->frame_height,
           telemetry->frame_length,
@@ -669,7 +671,8 @@ namespace aiot
           ClassName(result.predicted), static_cast<double>(result.confidence),
           static_cast<double>(result.probabilities[0]),
           static_cast<double>(result.probabilities[1]),
-          static_cast<double>(result.probabilities[2]), result.inference_time_us,
+          static_cast<double>(result.probabilities[2]),
+          static_cast<double>(result.probabilities[3]), result.inference_time_us,
           static_cast<unsigned>(nano_result));
 
       return nano_result;
@@ -888,6 +891,7 @@ namespace aiot
         AddFloatHeader(&client, "X-Paper-Probability", result.probabilities[0]);
         AddFloatHeader(&client, "X-Plastic-Probability", result.probabilities[1]);
         AddFloatHeader(&client, "X-Organic-Probability", result.probabilities[2]);
+        AddFloatHeader(&client, "X-Other-Probability", result.probabilities[3]);
         AddInt64Header(&client, "X-Inference-Us", result.inference_time_us);
       }
       else
@@ -896,6 +900,7 @@ namespace aiot
         AddFloatHeader(&client, "X-Paper-Probability", 0.0F);
         AddFloatHeader(&client, "X-Plastic-Probability", 0.0F);
         AddFloatHeader(&client, "X-Organic-Probability", 0.0F);
+        AddFloatHeader(&client, "X-Other-Probability", 0.0F);
         AddInt64Header(&client, "X-Inference-Us", 0);
       }
       client.println();

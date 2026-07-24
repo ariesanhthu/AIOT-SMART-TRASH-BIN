@@ -6,8 +6,8 @@
 namespace aiot::network_config {
 
 inline constexpr char kDeviceId[] = "esp32cam-01";
-inline constexpr char kFirmwareVersion[] = "v3.0-arduino";
-inline constexpr char kAiModelVersion[] = "waste_v3_int8";
+inline constexpr char kFirmwareVersion[] = "v4.0-arduino";
+inline constexpr char kAiModelVersion[] = "waste_v4_int8";
 
 inline constexpr std::uint32_t kInitialWifiTimeoutMs = 15000;
 inline constexpr std::uint32_t kReconnectTimeoutMs = 4000;
