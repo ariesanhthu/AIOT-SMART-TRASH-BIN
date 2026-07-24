@@ -112,7 +112,7 @@ namespace aiot
     std::uint32_t g_last_camera_service_attempt_ms = 0;
     std::uint32_t g_last_nano_ready_response_ms = 0;
     CompartmentFillLevels g_fill_levels;
-    bool g_nano_transaction_active = false;
+    CompartmentAlertState g_alert_state;
 
     constexpr std::uint32_t kCameraServiceRetryIntervalMs = 5000;
     constexpr std::uint32_t kNanoReadyResponseMinIntervalMs = 500;
@@ -1156,22 +1156,17 @@ namespace aiot
     {
       Serial.println("Cloud sync skipped: Wi-Fi unavailable");
     }
-    else
-    {
-      CloudRecognition cloud_recognition{};
-      cloud_recognition.jpeg_data = telemetry.jpeg_data;
-      cloud_recognition.jpeg_length = telemetry.jpeg_length;
-      cloud_recognition.waste_type = NanoResultWasteType(result);
-      cloud_recognition.confidence = telemetry.has_classification
-                                         ? telemetry.classification.confidence
-                                         : 0.0F;
-      cloud_recognition.has_classification = telemetry.has_classification;
-      cloud_synced = SyncRecognitionToCloud(cloud_recognition, g_fill_levels);
-    }
 
-    if (command_from_nano)
-    {
-      FinishNanoTransaction(cloud_synced);
-    }
+    CloudRecognition cloud_recognition{};
+    cloud_recognition.jpeg_data = telemetry.jpeg_data;
+    cloud_recognition.jpeg_length = telemetry.jpeg_length;
+    cloud_recognition.waste_type = NanoResultWasteType(result);
+    cloud_recognition.confidence = telemetry.has_classification
+                                       ? telemetry.classification.confidence
+                                       : 0.0F;
+    cloud_recognition.has_classification = telemetry.has_classification;
+    const String image_url = UploadRecognitionImage(cloud_recognition);
+    SyncRecognitionToCloud(cloud_recognition, g_fill_levels, image_url);
+    SendFullAlertsIfNeeded(g_fill_levels, &g_alert_state, image_url.c_str());
   }
 } // namespace aiot

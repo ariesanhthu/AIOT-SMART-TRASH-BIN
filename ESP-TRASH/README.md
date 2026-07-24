@@ -97,19 +97,24 @@ Serial Monitor 115200 baud test được toàn bộ cloud pipeline:
 
 1. Nhập `1` hoặc `T 1` để chụp và phân loại.
 2. Sau khi thấy `Test result`, nhập `F 10 10 10` theo thứ tự nhựa, giấy, hữu cơ.
-3. Firmware upload JPEG lên Cloudinary, in `secure_url`, cập nhật
-   `devices/{deviceId}` và tạo event Firestore có `image_url`.
+3. Firmware upload JPEG lên Cloudinary, in `secure_url`, rồi gửi event
+   `CLASSIFY`/`ERROR` (kèm `image_url`) lên backend qua
+   `POST /api/devices/{deviceId}/events`. Nếu ngăn nào đó vượt ngưỡng đầy,
+   firmware gửi thêm một event `FULL_ALERT` riêng cho ngăn đó.
 
 Firmware chờ lệnh `F` tối đa 60 giây khi test Monitor. Lệnh `WIFI_RESET` vẫn
 giữ nguyên.
 
-## Đồng bộ Cloudinary và Firestore
+## Đồng bộ Cloudinary và Backend
 
 Ảnh QVGA RGB565 dùng cho AI được chuyển thành JPEG quality 80 và upload trực
-tiếp tới Cloudinary bằng multipart HTTPS. Chỉ sau khi nhận được `secure_url`,
-firmware mới gọi Firestore `documents:commit`. Commit cập nhật
-`devices/{deviceId}` và tạo `devices/{deviceId}/events/{eventId}` atomically với
-`image_url`, kết quả AI và ba mức đầy.
+tiếp tới Cloudinary bằng multipart HTTPS (nếu upload thất bại, event vẫn được
+gửi với `imageUrl: null`). Firmware xác thực với backend bằng device JWT lấy
+từ `POST /api/devices/{deviceId}/auth-token` (header `X-Provision-Secret`),
+sau đó dùng JWT đó làm `Authorization: Bearer` khi gọi
+`POST /api/devices/{deviceId}/events`. Backend chịu trách nhiệm ghi Firestore
+(`devices/{deviceId}` và `devices/{deviceId}/events/{eventId}`) — firmware
+không còn ghi trực tiếp vào Firestore nữa.
 
 ## Pipeline AI
 

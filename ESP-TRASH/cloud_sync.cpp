@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 
+#include <cctype>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -25,28 +26,12 @@
 #define CLOUDINARY_UPLOAD_PRESET ""
 #endif
 
-#ifndef FIREBASE_PROJECT_ID
-#define FIREBASE_PROJECT_ID ""
-#endif
-
-#ifndef FIREBASE_API_KEY
-#define FIREBASE_API_KEY ""
-#endif
-
 #ifndef BACKEND_BASE_URL
 #define BACKEND_BASE_URL ""
 #endif
 
-#ifndef PROVISION_SECRET
-#define PROVISION_SECRET ""
-#endif
-
-#ifndef FIREBASE_USER_EMAIL
-#define FIREBASE_USER_EMAIL ""
-#endif
-
-#ifndef FIREBASE_USER_PASSWORD
-#define FIREBASE_USER_PASSWORD ""
+#ifndef DEVICE_PROVISION_SECRET
+#define DEVICE_PROVISION_SECRET ""
 #endif
 
 #ifndef FIREBASE_DEVICE_ID
@@ -63,8 +48,8 @@ namespace aiot
       String body;
     };
 
-    String g_firebase_id_token;
-    std::uint32_t g_firebase_token_valid_until_ms = 0;
+    String g_device_token;
+    std::uint32_t g_device_token_valid_until_ms = 0;
 
     bool IsHttpSuccess(const int status_code)
     {
@@ -77,14 +62,9 @@ namespace aiot
              CLOUDINARY_UPLOAD_PRESET[0] != '\0';
     }
 
-    bool HasFirebaseConfiguration()
+    bool HasBackendConfiguration()
     {
-      const bool custom_token_flow =
-          BACKEND_BASE_URL[0] != '\0' && PROVISION_SECRET[0] != '\0';
-      const bool password_flow = FIREBASE_USER_EMAIL[0] != '\0' &&
-                                 FIREBASE_USER_PASSWORD[0] != '\0';
-      return FIREBASE_PROJECT_ID[0] != '\0' && FIREBASE_API_KEY[0] != '\0' &&
-             (custom_token_flow || password_flow);
+      return BACKEND_BASE_URL[0] != '\0' && DEVICE_PROVISION_SECRET[0] != '\0';
     }
 
     const char *DeviceId()
@@ -196,6 +176,56 @@ namespace aiot
         }
       }
       return false;
+    }
+
+    bool ExtractJsonNumber(const String &json, const char *const key,
+                           long *const value)
+    {
+      if (key == nullptr || value == nullptr)
+      {
+        return false;
+      }
+
+      const String needle = String('"') + key + '"';
+      int cursor = json.indexOf(needle);
+      if (cursor < 0)
+      {
+        return false;
+      }
+      cursor = json.indexOf(':', cursor + needle.length());
+      if (cursor < 0)
+      {
+        return false;
+      }
+      ++cursor;
+      while (cursor < static_cast<int>(json.length()) && json[cursor] == ' ')
+      {
+        ++cursor;
+      }
+
+      bool negative = false;
+      if (cursor < static_cast<int>(json.length()) && json[cursor] == '-')
+      {
+        negative = true;
+        ++cursor;
+      }
+
+      long parsed = 0;
+      bool has_digits = false;
+      while (cursor < static_cast<int>(json.length()) &&
+             std::isdigit(static_cast<unsigned char>(json[cursor])))
+      {
+        parsed = (parsed * 10) + (json[cursor] - '0');
+        has_digits = true;
+        ++cursor;
+      }
+      if (!has_digits)
+      {
+        return false;
+      }
+
+      *value = negative ? -parsed : parsed;
+      return true;
     }
 
     bool WriteAll(esp_http_client_handle_t client, const char *data,
@@ -326,99 +356,68 @@ namespace aiot
       return url;
     }
 
-    bool FirebaseTokenIsFresh()
+    bool DeviceTokenIsFresh()
     {
-      if (g_firebase_id_token.isEmpty())
+      if (g_device_token.isEmpty())
       {
         return false;
       }
-      return static_cast<std::int32_t>(g_firebase_token_valid_until_ms -
+      return static_cast<std::int32_t>(g_device_token_valid_until_ms -
                                        millis()) > 0;
     }
 
-    bool AcquireFirebaseIdToken()
+    bool AcquireDeviceToken()
     {
-      if (!HasFirebaseConfiguration())
+      if (!HasBackendConfiguration())
       {
         Serial.println(
-            "Firebase is not configured in secrets.h; database sync skipped");
+            "Backend is not configured in secrets.h; device auth skipped");
         return false;
       }
 
-      String exchange_url = "https://identitytoolkit.googleapis.com/v1/";
-      String exchange_body;
-      if (BACKEND_BASE_URL[0] != '\0' && PROVISION_SECRET[0] != '\0')
-      {
-        String token_path = "/api/devices/";
-        token_path += DeviceId();
-        token_path += "/auth-token";
-        const HttpResponse custom_response = SendJsonRequest(
-            JoinBackendUrl(token_path.c_str()), HTTP_METHOD_POST, "{}",
-            nullptr, PROVISION_SECRET);
-        String custom_token;
-        if (!IsHttpSuccess(custom_response.status_code) ||
-            !ExtractJsonString(custom_response.body, "customToken",
-                               &custom_token))
-        {
-          Serial.printf("Firebase custom-token request failed: HTTP %d\n",
-                        custom_response.status_code);
-          return false;
-        }
+      String path = "/api/devices/";
+      path += DeviceId();
+      path += "/auth-token";
+      const HttpResponse response = SendJsonRequest(
+          JoinBackendUrl(path.c_str()), HTTP_METHOD_POST, "{}", nullptr,
+          DEVICE_PROVISION_SECRET);
 
-        exchange_url += "accounts:signInWithCustomToken?key=";
-        exchange_body = F("{\"token\":\"");
-        exchange_body += JsonEscape(custom_token.c_str());
-        exchange_body += F("\",\"returnSecureToken\":true}");
+      String token;
+      if (!IsHttpSuccess(response.status_code) ||
+          !ExtractJsonString(response.body, "token", &token))
+      {
+        Serial.printf("Device auth-token request failed: HTTP %d\n",
+                      response.status_code);
+        return false;
+      }
+
+      g_device_token = token;
+
+      long expires_in_seconds = 0;
+      constexpr std::uint32_t kSafetyMarginMs = 60U * 1000U;
+      if (ExtractJsonNumber(response.body, "expiresInSeconds",
+                            &expires_in_seconds) &&
+          expires_in_seconds > 60)
+      {
+        const std::uint32_t expiry_ms =
+            static_cast<std::uint32_t>(expires_in_seconds) * 1000U;
+        g_device_token_valid_until_ms =
+            millis() + (expiry_ms > kSafetyMarginMs ? expiry_ms - kSafetyMarginMs
+                                                     : expiry_ms);
       }
       else
       {
-        exchange_url += "accounts:signInWithPassword?key=";
-        exchange_body = F("{\"email\":\"");
-        exchange_body += JsonEscape(FIREBASE_USER_EMAIL);
-        exchange_body += F("\",\"password\":\"");
-        exchange_body += JsonEscape(FIREBASE_USER_PASSWORD);
-        exchange_body += F("\",\"returnSecureToken\":true}");
-      }
-      exchange_url += FIREBASE_API_KEY;
-
-      const HttpResponse exchange_response = SendJsonRequest(
-          exchange_url, HTTP_METHOD_POST, exchange_body, nullptr, nullptr);
-      String id_token;
-      if (!IsHttpSuccess(exchange_response.status_code) ||
-          !ExtractJsonString(exchange_response.body, "idToken", &id_token))
-      {
-        Serial.printf("Firebase token exchange failed: HTTP %d\n",
-                      exchange_response.status_code);
-        return false;
+        g_device_token_valid_until_ms =
+            millis() + network_config::kDeviceTokenRefreshMs;
       }
 
-      g_firebase_id_token = id_token;
-      g_firebase_token_valid_until_ms =
-          millis() + network_config::kFirebaseTokenRefreshMs;
-      Serial.println("Firebase device authentication ready");
+      Serial.println("Device token acquired");
       return true;
     }
 
-    bool EnsureFirebaseIdToken()
+    bool EnsureDeviceToken()
     {
-      return FirebaseTokenIsFresh() || AcquireFirebaseIdToken();
-    }
-
-    String FirestoreDocumentsBaseUrl()
-    {
-      String url = "https://firestore.googleapis.com/v1/projects/";
-      url += FIREBASE_PROJECT_ID;
-      url += "/databases/(default)/documents";
-      return url;
-    }
-
-    String FirestoreDeviceDocumentName()
-    {
-      String name = "projects/";
-      name += FIREBASE_PROJECT_ID;
-      name += "/databases/(default)/documents/devices/";
-      name += DeviceId();
-      return name;
+      return DeviceTokenIsFresh() || AcquireDeviceToken();
     }
 
     bool GetUtcTimestamp(char *const output, const std::size_t output_size)
@@ -439,7 +438,7 @@ namespace aiot
              0U;
     }
 
-    String UploadToCloudinary(const CloudRecognition &recognition)
+    String UploadToCloudinaryImpl(const CloudRecognition &recognition)
     {
       String image_url;
       if (!HasCloudinaryConfiguration())
@@ -521,189 +520,138 @@ namespace aiot
       return image_url;
     }
 
-    const char *FillStatus(const std::uint8_t fill_percent)
+    struct EventPayload
     {
-      return fill_percent >= network_config::kFullThresholdPercent ? "full"
-                                                                   : "normal";
-    }
+      const char *event_type = nullptr;
+      const char *waste_type = nullptr;
+      const char *target_compartment = nullptr;
+      bool has_ai_confidence = false;
+      float ai_confidence = 0.0F;
+      const CompartmentFillLevels *fill_levels = nullptr;
+      bool has_alert_threshold = false;
+      std::uint8_t alert_threshold = 0;
+      const char *device_timestamp = nullptr;
+      const char *image_url = nullptr;
+    };
 
-    String BuildDeviceDocumentJson(const CloudRecognition &recognition,
-                                   const CompartmentFillLevels &fill_levels,
-                                   const char *const timestamp,
-                                   const String &document_name)
+    String BuildEventJson(const EventPayload &payload)
     {
-      const char *const class_name =
-          recognition.waste_type != nullptr ? recognition.waste_type
-                                            : "not_recognized";
       String json;
-      json.reserve(1000);
-      json += F("{\"name\":\"");
-      json += document_name;
-      json += F("\",\"fields\":{");
-      json += F("\"last_seen_at\":{\"timestampValue\":\"");
-      json += timestamp;
-      json += F("\"},\"firmware_version\":{\"stringValue\":\"");
+      json.reserve(600);
+      json += F("{\"eventType\":\"");
+      json += payload.event_type;
+      json += F("\",\"wasteType\":");
+      if (payload.waste_type != nullptr)
+      {
+        json += '"';
+        json += JsonEscape(payload.waste_type);
+        json += '"';
+      }
+      else
+      {
+        json += F("null");
+      }
+      json += F(",\"targetCompartment\":");
+      if (payload.target_compartment != nullptr)
+      {
+        json += '"';
+        json += JsonEscape(payload.target_compartment);
+        json += '"';
+      }
+      else
+      {
+        json += F("null");
+      }
+      json += F(",\"aiConfidence\":");
+      json += payload.has_ai_confidence ? String(payload.ai_confidence, 6)
+                                        : String(F("null"));
+      json += F(",\"fillPercent\":{\"organic\":");
+      json += static_cast<unsigned>(payload.fill_levels->organic);
+      json += F(",\"paper\":");
+      json += static_cast<unsigned>(payload.fill_levels->paper);
+      json += F(",\"plastic\":");
+      json += static_cast<unsigned>(payload.fill_levels->plastic);
+      json += F("},\"alertThreshold\":");
+      json += payload.has_alert_threshold
+                 ? String(static_cast<unsigned>(payload.alert_threshold))
+                 : String(F("null"));
+      json += F(",\"deviceTimestamp\":\"");
+      json += payload.device_timestamp;
+      json += F("\",\"syncedLate\":false,\"firmwareVersion\":\"");
       json += network_config::kFirmwareVersion;
-      json += F("\"},\"ai_model_version\":{\"stringValue\":\"");
+      json += F("\",\"aiModelVersion\":\"");
       json += network_config::kAiModelVersion;
-      json += F("\"},\"class_name\":{\"stringValue\":\"");
-      json += class_name;
-      json += F("\"},\"compartments\":{\"mapValue\":{\"fields\":{");
-
-      json += F("\"organic\":{\"mapValue\":{\"fields\":{" 
-                "\"fill_percent\":{\"doubleValue\":");
-      json += static_cast<unsigned>(fill_levels.organic);
-      json += F("},\"status\":{\"stringValue\":\"");
-      json += FillStatus(fill_levels.organic);
-      json += F("\"}}}},");
-
-      json += F("\"paper\":{\"mapValue\":{\"fields\":{" 
-                "\"fill_percent\":{\"doubleValue\":");
-      json += static_cast<unsigned>(fill_levels.paper);
-      json += F("},\"status\":{\"stringValue\":\"");
-      json += FillStatus(fill_levels.paper);
-      json += F("\"}}}},");
-
-      json += F("\"plastic\":{\"mapValue\":{\"fields\":{" 
-                "\"fill_percent\":{\"doubleValue\":");
-      json += static_cast<unsigned>(fill_levels.plastic);
-      json += F("},\"status\":{\"stringValue\":\"");
-      json += FillStatus(fill_levels.plastic);
-      json += F("\"}}}}"); // status, plastic fields/map/value
-      json += F("}}}");     // compartments fields/map/value
-      json += F("}}");      // document fields and document
-      return json;
-    }
-
-    String BuildEventDocumentJson(const CloudRecognition &recognition,
-                                  const CompartmentFillLevels &fill_levels,
-                                  const char *const timestamp,
-                                  const String &image_url,
-                                  const String &document_name)
-    {
-      const bool classified = recognition.has_classification &&
-                              recognition.waste_type != nullptr;
-      String json;
-      json.reserve(1500);
-      json += F("{\"name\":\"");
-      json += document_name;
-      json += F("\",\"fields\":{");
-      json += F("\"event_type\":{\"stringValue\":\"");
-      json += classified ? "CLASSIFY" : "ERROR";
-      json += F("\"},\"waste_type\":{");
-      if (classified)
+      json += F("\",\"imageUrl\":");
+      if (payload.image_url != nullptr && payload.image_url[0] != '\0')
       {
-        json += F("\"stringValue\":\"");
-        json += recognition.waste_type;
+        json += '"';
+        json += JsonEscape(payload.image_url);
         json += '"';
       }
       else
       {
-        json += F("\"nullValue\":null");
+        json += F("null");
       }
-      json += F("},\"target_compartment\":{");
-      if (classified)
-      {
-        json += F("\"stringValue\":\"");
-        json += recognition.waste_type;
-        json += '"';
-      }
-      else
-      {
-        json += F("\"nullValue\":null");
-      }
-      json += F("},\"ai_confidence\":{");
-      if (classified)
-      {
-        json += F("\"doubleValue\":");
-        json += String(recognition.confidence, 6);
-      }
-      else
-      {
-        json += F("\"nullValue\":null");
-      }
-      json += F("},\"fill_percent\":{\"mapValue\":{\"fields\":{" 
-                "\"organic\":{\"doubleValue\":");
-      json += static_cast<unsigned>(fill_levels.organic);
-      json += F("},\"paper\":{\"doubleValue\":");
-      json += static_cast<unsigned>(fill_levels.paper);
-      json += F("},\"plastic\":{\"doubleValue\":");
-      json += static_cast<unsigned>(fill_levels.plastic);
-      json += F("}}}},\"alert_threshold\":{\"doubleValue\":");
-      json += static_cast<unsigned>(network_config::kFullThresholdPercent);
-      json += F("},\"device_timestamp\":{\"timestampValue\":\"");
-      json += timestamp;
-      json += F("\"},\"received_at\":{\"timestampValue\":\"");
-      json += timestamp;
-      json += F("\"},\"synced_late\":{\"booleanValue\":false},"
-                "\"firmware_version\":{\"stringValue\":\"");
-      json += network_config::kFirmwareVersion;
-      json += F("\"},\"ai_model_version\":{\"stringValue\":\"");
-      json += network_config::kAiModelVersion;
-      json += F("\"},\"alert_status\":{\"nullValue\":null},"
-                "\"resolved_at\":{\"nullValue\":null},"
-                "\"resolved_by\":{\"nullValue\":null},\"image_url\":{");
-      if (image_url.isEmpty())
-      {
-        json += F("\"nullValue\":null");
-      }
-      else
-      {
-        json += F("\"stringValue\":\"");
-        json += JsonEscape(image_url.c_str());
-        json += '"';
-      }
-      json += F("}}}");
+      json += F("}");
       return json;
     }
 
-    String BuildFirestoreCommitJson(const String &device_document,
-                                    const String &event_document)
+    HttpResponse SendEventToBackend(const String &json)
     {
-      String json;
-      json.reserve(device_document.length() + event_document.length() + 800U);
-      json += F("{\"writes\":[{\"update\":");
-      json += device_document;
-      json += F(",\"updateMask\":{\"fieldPaths\":["
-                "\"last_seen_at\","
-                "\"firmware_version\","
-                "\"ai_model_version\","
-                "\"class_name\","
-                "\"compartments.organic.fill_percent\","
-                "\"compartments.organic.status\","
-                "\"compartments.paper.fill_percent\","
-                "\"compartments.paper.status\","
-                "\"compartments.plastic.fill_percent\","
-                "\"compartments.plastic.status\"]},"
-                "\"currentDocument\":{\"exists\":true}},{\"update\":");
-      json += event_document;
-      json += F(",\"currentDocument\":{\"exists\":false}}]}");
-      return json;
-    }
+      if (!EnsureDeviceToken())
+      {
+        HttpResponse failure;
+        return failure;
+      }
 
-    HttpResponse SendFirestoreRequest(const String &url,
-                                      const esp_http_client_method_t method,
-                                      const String &json)
-    {
+      String path = "/api/devices/";
+      path += DeviceId();
+      path += "/events";
+      const String url = JoinBackendUrl(path.c_str());
+
       String authorization = "Bearer ";
-      authorization += g_firebase_id_token;
-      const HttpResponse response = SendJsonRequest(
-          url, method, json, authorization.c_str(), nullptr);
+      authorization += g_device_token;
+      HttpResponse response = SendJsonRequest(
+          url, HTTP_METHOD_POST, json, authorization.c_str(), nullptr);
+
+      if (response.status_code == 401)
+      {
+        g_device_token = "";
+        g_device_token_valid_until_ms = 0;
+        if (AcquireDeviceToken())
+        {
+          authorization = "Bearer ";
+          authorization += g_device_token;
+          response = SendJsonRequest(url, HTTP_METHOD_POST, json,
+                                     authorization.c_str(), nullptr);
+        }
+      }
+
       if (!IsHttpSuccess(response.status_code) && !response.body.isEmpty())
       {
         String preview = response.body.substring(0, 300);
         preview.replace('\n', ' ');
         preview.replace('\r', ' ');
-        Serial.printf("Firestore error: %s\n", preview.c_str());
+        Serial.printf("Backend event ingest error: HTTP %d: %s\n",
+                      response.status_code, preview.c_str());
       }
       return response;
     }
 
-    String FirestoreCommitUrl()
+    bool CheckAndUpdateAlert(const std::uint8_t fill_percent, bool *const alerted)
     {
-      String url = FirestoreDocumentsBaseUrl();
-      url += ":commit";
-      return url;
+      const bool over = fill_percent >= network_config::kFullThresholdPercent;
+      if (!over)
+      {
+        *alerted = false;
+        return false;
+      }
+      if (*alerted)
+      {
+        return false;
+      }
+      *alerted = true;
+      return true;
     }
   } // namespace
 
@@ -730,8 +678,14 @@ namespace aiot
     return false;
   }
 
+  String UploadRecognitionImage(const CloudRecognition &recognition)
+  {
+    return UploadToCloudinaryImpl(recognition);
+  }
+
   bool SyncRecognitionToCloud(const CloudRecognition &recognition,
-                              const CompartmentFillLevels &fill_levels)
+                              const CompartmentFillLevels &fill_levels,
+                              const String &image_url)
   {
     if (!fill_levels.received)
     {
@@ -753,50 +707,96 @@ namespace aiot
       return false;
     }
 
-    const String image_url = UploadToCloudinary(recognition);
     if (image_url.isEmpty())
     {
-      Serial.println("Firestore sync cancelled: Cloudinary URL is unavailable");
-      return false;
-    }
-    if (!EnsureFirebaseIdToken())
-    {
-      return false;
+      Serial.println(
+          "Cloudinary image unavailable; sending event without imageUrl");
     }
 
-    const String device_name = FirestoreDeviceDocumentName();
-    char event_id[48]{};
-    std::snprintf(event_id, sizeof(event_id), "evt_%lld_%08lx",
-                  static_cast<long long>(std::time(nullptr)),
-                  static_cast<unsigned long>(millis()));
-    String event_name = device_name;
-    event_name += "/events/";
-    event_name += event_id;
+    const bool classified =
+        recognition.has_classification && recognition.waste_type != nullptr;
 
-    const String device_document = BuildDeviceDocumentJson(
-        recognition, fill_levels, timestamp, device_name);
-    const String event_document = BuildEventDocumentJson(
-        recognition, fill_levels, timestamp, image_url, event_name);
-    const String commit_json =
-        BuildFirestoreCommitJson(device_document, event_document);
+    EventPayload payload{};
+    payload.event_type = classified ? "CLASSIFY" : "ERROR";
+    payload.waste_type = classified ? recognition.waste_type : nullptr;
+    payload.target_compartment = payload.waste_type;
+    payload.has_ai_confidence = classified;
+    payload.ai_confidence = recognition.confidence;
+    payload.fill_levels = &fill_levels;
+    payload.has_alert_threshold = true;
+    payload.alert_threshold = network_config::kFullThresholdPercent;
+    payload.device_timestamp = timestamp;
+    payload.image_url = image_url.c_str();
 
-    HttpResponse commit_response = SendFirestoreRequest(
-        FirestoreCommitUrl(), HTTP_METHOD_POST, commit_json);
+    const HttpResponse response = SendEventToBackend(BuildEventJson(payload));
+    const bool succeeded = IsHttpSuccess(response.status_code);
+    Serial.printf("Backend event ingest: HTTP %d, type=%s\n",
+                  response.status_code, payload.event_type);
+    return succeeded;
+  }
 
-    if (commit_response.status_code == 401)
+  int SendFullAlertsIfNeeded(const CompartmentFillLevels &fill_levels,
+                             CompartmentAlertState *const alert_state,
+                             const char *const image_url)
+  {
+    if (!fill_levels.received || alert_state == nullptr)
     {
-      g_firebase_id_token = "";
-      g_firebase_token_valid_until_ms = 0;
-      if (AcquireFirebaseIdToken())
+      return 0;
+    }
+    if (WiFi.status() != WL_CONNECTED)
+    {
+      return 0;
+    }
+
+    char timestamp[25]{};
+    if (!GetUtcTimestamp(timestamp, sizeof(timestamp)))
+    {
+      return 0;
+    }
+
+    struct Compartment
+    {
+      const char *name;
+      std::uint8_t percent;
+      bool *alerted;
+    };
+    Compartment compartments[3] = {
+        {"organic", fill_levels.organic, &alert_state->organic_alerted},
+        {"paper", fill_levels.paper, &alert_state->paper_alerted},
+        {"plastic", fill_levels.plastic, &alert_state->plastic_alerted},
+    };
+
+    int sent_count = 0;
+    for (const Compartment &compartment : compartments)
+    {
+      if (!CheckAndUpdateAlert(compartment.percent, compartment.alerted))
       {
-        commit_response = SendFirestoreRequest(
-            FirestoreCommitUrl(), HTTP_METHOD_POST, commit_json);
+        continue;
+      }
+
+      EventPayload payload{};
+      payload.event_type = "FULL_ALERT";
+      payload.waste_type = nullptr;
+      payload.target_compartment = compartment.name;
+      payload.has_ai_confidence = false;
+      payload.fill_levels = &fill_levels;
+      payload.has_alert_threshold = true;
+      payload.alert_threshold = network_config::kFullThresholdPercent;
+      payload.device_timestamp = timestamp;
+      payload.image_url = image_url;
+
+      const HttpResponse response = SendEventToBackend(BuildEventJson(payload));
+      Serial.printf("FULL_ALERT[%s]: HTTP %d\n", compartment.name,
+                    response.status_code);
+      if (IsHttpSuccess(response.status_code))
+      {
+        ++sent_count;
+      }
+      else
+      {
+        *compartment.alerted = false;
       }
     }
-
-    const bool committed = IsHttpSuccess(commit_response.status_code);
-    Serial.printf("Firestore atomic commit: HTTP %d, event=%s\n",
-                  commit_response.status_code, event_id);
-    return committed;
+    return sent_count;
   }
 } // namespace aiot

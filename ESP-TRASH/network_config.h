@@ -21,7 +21,7 @@ inline constexpr std::uint32_t kClockSyncTimeoutMs = 10000;
 // Leave enough margin for sensor retries and an F packet retransmission.
 inline constexpr std::uint32_t kNanoFillTimeoutMs = 30000;
 inline constexpr std::uint32_t kMonitorFillTimeoutMs = 60000;
-inline constexpr std::uint32_t kFirebaseTokenRefreshMs = 55U * 60U * 1000U;
+inline constexpr std::uint32_t kDeviceTokenRefreshMs = 55U * 60U * 1000U;
 inline constexpr std::time_t kMinimumValidEpoch = 1700000000;
 inline constexpr std::uint8_t kFullThresholdPercent = 80;
 inline constexpr std::uint8_t kTelemetryJpegQuality = 80;
