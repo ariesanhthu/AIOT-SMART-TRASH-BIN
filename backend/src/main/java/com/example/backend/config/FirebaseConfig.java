@@ -9,18 +9,18 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
-/**
- * Khởi tạo FirebaseApp một lần khi ứng dụng start, dùng service account key
- * (Admin SDK) để backend có toàn quyền đọc/ghi Firestore, bỏ qua Security Rules.
- *
- */
 @Configuration
 public class FirebaseConfig {
 
-    @Value("${firebase.credentials.path}")
+    @Value("${firebase.credentials.json:}")
+    private String credentialsJson;
+
+    @Value("${firebase.credentials.path:}")
     private String credentialsPath;
 
     @Bean
@@ -28,12 +28,20 @@ public class FirebaseConfig {
         if (!FirebaseApp.getApps().isEmpty()) {
             return FirebaseApp.getInstance();
         }
-        try (FileInputStream serviceAccount = new FileInputStream(credentialsPath)) {
-            FirebaseOptions options = FirebaseOptions.builder()
-                    .setCredentials(GoogleCredentials.fromStream(serviceAccount))
-                    .build();
-            return FirebaseApp.initializeApp(options);
+        GoogleCredentials credentials;
+        if (!credentialsJson.isBlank()) {
+            credentials = GoogleCredentials.fromStream(
+                new ByteArrayInputStream(credentialsJson.getBytes(StandardCharsets.UTF_8))
+            );
+        } else {
+            try (FileInputStream serviceAccount = new FileInputStream(credentialsPath)) {
+                credentials = GoogleCredentials.fromStream(serviceAccount);
+            }
         }
+        FirebaseOptions options = FirebaseOptions.builder()
+                .setCredentials(credentials)
+                .build();
+        return FirebaseApp.initializeApp(options);
     }
 
     @Bean
