@@ -1,10 +1,9 @@
-# Build stage
 FROM gradle:8.10-jdk21 AS build
 WORKDIR /app
 COPY . .
+RUN chmod +x gradlew
 RUN ./gradlew clean build -x test
 
-# Run stage
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 COPY --from=build /app/build/libs/backend-0.0.1-SNAPSHOT.jar app.jar
