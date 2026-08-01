@@ -15,6 +15,8 @@ public class Device {
     private String firmwareVersion;
     private String aiModelVersion;
     private String className;
+    private Timestamp lastConfigUpdatedAt;
+    private String lastConfigUpdatedBy;
     private Map<String, Compartment> compartments;
 
     public String getName() { return name; }
@@ -47,6 +49,16 @@ public class Device {
     public String getClassName() { return className; }
     @PropertyName("class_name")
     public void setClassName(String className) { this.className = className; }
+
+    @PropertyName("last_config_updated_at")
+    public Timestamp getLastConfigUpdatedAt() { return lastConfigUpdatedAt; }
+    @PropertyName("last_config_updated_at")
+    public void setLastConfigUpdatedAt(Timestamp lastConfigUpdatedAt) { this.lastConfigUpdatedAt = lastConfigUpdatedAt; }
+
+    @PropertyName("last_config_updated_by")
+    public String getLastConfigUpdatedBy() { return lastConfigUpdatedBy; }
+    @PropertyName("last_config_updated_by")
+    public void setLastConfigUpdatedBy(String lastConfigUpdatedBy) { this.lastConfigUpdatedBy = lastConfigUpdatedBy; }
 
     public Map<String, Compartment> getCompartments() { return compartments; }
     public void setCompartments(Map<String, Compartment> compartments) { this.compartments = compartments; }
