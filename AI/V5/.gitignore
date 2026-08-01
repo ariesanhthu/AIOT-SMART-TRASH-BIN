@@ -1,0 +1,7 @@
+__pycache__/
+dataset_prepared/
+artifacts/
+artifacts_tuned/
+artifacts_tuned2/
+artifacts_final/
+esp32_model/

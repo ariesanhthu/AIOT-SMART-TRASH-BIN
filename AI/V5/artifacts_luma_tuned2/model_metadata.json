@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "model_version": "tinycnn-v5-luma-env-balanced",
+  "created_utc": "2026-08-01T03:50:35+00:00",
+  "labels": [
+    "paper",
+    "plastic",
+    "organic",
+    "other"
+  ],
+  "class_to_index": {
+    "paper": 0,
+    "plastic": 1,
+    "organic": 2,
+    "other": 3
+  },
+  "input": {
+    "shape": [
+      1,
+      96,
+      96,
+      3
+    ],
+    "layout": "NHWC",
+    "keras_dtype": "float32",
+    "tflite_dtype": "int8",
+    "tflite_name": "serving_default_image:0",
+    "quantization": {
+      "scale": 0.003921568859368563,
+      "zero_point": -128
+    }
+  },
+  "output": {
+    "name": "logits",
+    "shape": [
+      1,
+      4
+    ],
+    "semantics": "unnormalized_class_logits",
+    "tflite_dtype": "int8",
+    "tflite_name": "StatefulPartitionedCall_1:0",
+    "quantization": {
+      "scale": 0.048574768006801605,
+      "zero_point": 4
+    }
+  },
+  "preprocessing": {
+    "color_space": "RGB",
+    "crop": "center_square",
+    "resize": "nearest_neighbor_floor",
+    "resize_mapping": "source_index=(destination_index*source_size)//96",
+    "normalization": "pixel/255.0",
+    "input_range": [
+      0.0,
+      1.0
+    ],
+    "luminance_normalization": "integer mean luma dead-band [96,160], bounded Q8 RGB gain [192,341]",
+    "sensor_input": "ESP32 RGB565 expansion before luminance normalization"
+  },
+  "dataset": {
+    "root": "F:\\ANHTHU\\1-HCMUS\\1 - STUDY\\0-now\\AIOT\\PROJECT\\CODE\\AIOT-SMART-TRASH-BIN\\AI\\V5\\dataset_prepared",
+    "dataset_sha256": "4a3da1275aef57dde5f4f2cac936224461d8063ddd3026177448048e32229ef0",
+    "manifest": "F:\\ANHTHU\\1-HCMUS\\1 - STUDY\\0-now\\AIOT\\PROJECT\\CODE\\AIOT-SMART-TRASH-BIN\\AI\\V5\\dataset_prepared\\manifest.csv",
+    "counts": {
+      "train": {
+        "paper": 403,
+        "plastic": 347,
+        "organic": 347,
+        "other": 573,
+        "total": 1670
+      },
+      "validation": {
+        "paper": 83,
+        "plastic": 61,
+        "organic": 61,
+        "other": 102,
+        "total": 307
+      },
+      "test": {
+        "paper": 108,
+        "plastic": 74,
+        "organic": 74,
+        "other": 138,
+        "total": 394
+      }
+    },
+    "total": 2371
+  },
+  "seed": 42,
+  "artifacts": {
+    "float_model": {
+      "file": "model_float.keras",
+      "size_bytes": 729970,
+      "sha256": "55539f3cc100c9f3861593cd0228c68a595e247d25ff495182ceabe58c21247c"
+    },
+    "int8_model": {
+      "file": "model_int8.tflite",
+      "size_bytes": 62776,
+      "sha256": "ec723288d48914c6ce9783428128a4dbd864818370f44cea372ac0b8de6acf7f"
+    }
+  },
+  "training_variant": "AI/V5 robust training followed by mild balanced camera calibration",
+  "environment_invariance": {
+    "geometry": "flip, rotation +/-25deg, scale, translation, shear",
+    "lighting": "gamma, exposure, dedicated 35% clipped-overexposure/glare branch, contrast, saturation, hue, RGB gains, shadow",
+    "sensor": "blur, low-resolution, RGB565 quantization, Gaussian noise",
+    "validation_test_augmented": false,
+    "checkpoint_environment_profiles": "overexposed, warm_cast, cool_cast, low_light"
+  },
+  "fine_tune": {
+    "data": "F:\\ANHTHU\\1-HCMUS\\1 - STUDY\\0-now\\AIOT\\PROJECT\\CODE\\AIOT-SMART-TRASH-BIN\\AI\\V5\\dataset_prepared",
+    "model": "F:\\ANHTHU\\1-HCMUS\\1 - STUDY\\0-now\\AIOT\\PROJECT\\CODE\\AIOT-SMART-TRASH-BIN\\AI\\V5\\artifacts_luma_tuned1\\model_float.keras",
+    "metadata": "F:\\ANHTHU\\1-HCMUS\\1 - STUDY\\0-now\\AIOT\\PROJECT\\CODE\\AIOT-SMART-TRASH-BIN\\AI\\V5\\artifacts_luma_tuned1\\model_metadata.json",
+    "out": "F:\\ANHTHU\\1-HCMUS\\1 - STUDY\\0-now\\AIOT\\PROJECT\\CODE\\AIOT-SMART-TRASH-BIN\\AI\\V5\\artifacts_luma_tuned2",
+    "batch_size": 32,
+    "epochs": 20,
+    "patience": 6,
+    "learning_rate": 5e-05,
+    "weight_decay": 5e-05,
+    "label_smoothing": 0.02,
+    "focal_gamma": 1.0,
+    "augmentation": "mild balanced camera calibration with 20% overexposure/glare",
+    "seed": 271828,
+    "model_version": "tinycnn-v5-luma-env-balanced",
+    "base_float_sha256": "e81900327c39d566f63030f084af631dec392e6cc9fe276af97b6d0a88cb1777",
+    "balance_strategy": "exact round-robin class sampling",
+    "effective_samples_per_class_per_epoch": 573,
+    "effective_total_per_epoch": 2292
+  },
+  "exported_utc": "2026-08-01T04:00:24+00:00",
+  "tflite": {
+    "operators": [
+      "CONV_2D",
+      "CONV_2D",
+      "CONV_2D",
+      "CONV_2D",
+      "CONV_2D",
+      "MEAN",
+      "FULLY_CONNECTED"
+    ],
+    "full_integer": true,
+    "max_model_bytes": 262144
+  }
+}

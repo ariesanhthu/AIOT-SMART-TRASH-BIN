@@ -1,0 +1,113 @@
+{
+  "model": "F:\\ANHTHU\\1-HCMUS\\1 - STUDY\\0-now\\AIOT\\PROJECT\\CODE\\AIOT-SMART-TRASH-BIN\\AI\\V5\\artifacts_luma_tuned2\\model_int8.tflite",
+  "sha256": "ec723288d48914c6ce9783428128a4dbd864818370f44cea372ac0b8de6acf7f",
+  "dataset_sha256": "4a3da1275aef57dde5f4f2cac936224461d8063ddd3026177448048e32229ef0",
+  "split": "test",
+  "inspection": {
+    "model_size_bytes": 62776,
+    "sha256": "ec723288d48914c6ce9783428128a4dbd864818370f44cea372ac0b8de6acf7f",
+    "full_integer": true,
+    "input": {
+      "name": "serving_default_image:0",
+      "shape": [
+        1,
+        96,
+        96,
+        3
+      ],
+      "dtype": "int8",
+      "quantization": {
+        "scale": 0.003921568859368563,
+        "zero_point": -128
+      }
+    },
+    "output": {
+      "name": "StatefulPartitionedCall_1:0",
+      "shape": [
+        1,
+        4
+      ],
+      "dtype": "int8",
+      "quantization": {
+        "scale": 0.048574768006801605,
+        "zero_point": 4
+      }
+    },
+    "operators": [
+      "CONV_2D",
+      "CONV_2D",
+      "CONV_2D",
+      "CONV_2D",
+      "CONV_2D",
+      "MEAN",
+      "FULLY_CONNECTED"
+    ],
+    "unique_operators": [
+      "CONV_2D",
+      "FULLY_CONNECTED",
+      "MEAN"
+    ],
+    "unsupported_operators": [],
+    "float_tensors": []
+  },
+  "metrics": {
+    "samples": 394,
+    "accuracy": 0.7868020304568528,
+    "balanced_accuracy": 0.7927710319014667,
+    "macro_precision": 0.7925759476392388,
+    "macro_recall": 0.7927710319014667,
+    "macro_f1": 0.7881185499451473,
+    "per_class": {
+      "paper": {
+        "precision": 0.696969696969697,
+        "recall": 0.8518518518518519,
+        "f1-score": 0.7666666666666667,
+        "support": 108.0
+      },
+      "plastic": {
+        "precision": 0.6835443037974683,
+        "recall": 0.7297297297297297,
+        "f1-score": 0.7058823529411765,
+        "support": 74.0
+      },
+      "organic": {
+        "precision": 0.8888888888888888,
+        "recall": 0.8648648648648649,
+        "f1-score": 0.8767123287671232,
+        "support": 74.0
+      },
+      "other": {
+        "precision": 0.9009009009009009,
+        "recall": 0.7246376811594203,
+        "f1-score": 0.8032128514056225,
+        "support": 138.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        92,
+        9,
+        5,
+        2
+      ],
+      [
+        13,
+        54,
+        0,
+        7
+      ],
+      [
+        7,
+        1,
+        64,
+        2
+      ],
+      [
+        20,
+        15,
+        3,
+        100
+      ]
+    ]
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "accuracy": [
+    0.4392361044883728
+  ],
+  "loss": [
+    0.7921914458274841
+  ],
+  "val_accuracy": [
+    0.5081433057785034
+  ],
+  "val_loss": [
+    0.6383088827133179
+  ],
+  "val_macro_f1": [
+    0.5064972090289773
+  ],
+  "val_min_recall": [
+    0.30392156862745096
+  ],
+  "val_min_precision": [
+    0.3448275862068966
+  ],
+  "val_organic_recall": [
+    0.9672131147540983
+  ],
+  "val_organic_precision": [
+    0.5462962962962963
+  ],
+  "val_organic_to_paper_rate": [
+    0.01639344262295082
+  ],
+  "val_environment_macro_f1": [
+    0.446588439866665
+  ],
+  "val_environment_min_recall": [
+    0.26506024096385544
+  ],
+  "val_environment_min_precision": [
+    0.38427947598253276
+  ],
+  "val_selection_score": [
+    0.42276092386811764
+  ],
+  "learning_rate": [
+    0.0005000000237487257
+  ]
+}

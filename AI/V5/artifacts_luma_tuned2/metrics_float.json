@@ -1,0 +1,66 @@
+{
+  "model": "F:\\ANHTHU\\1-HCMUS\\1 - STUDY\\0-now\\AIOT\\PROJECT\\CODE\\AIOT-SMART-TRASH-BIN\\AI\\V5\\artifacts_luma_tuned2\\model_float.keras",
+  "sha256": "55539f3cc100c9f3861593cd0228c68a595e247d25ff495182ceabe58c21247c",
+  "dataset_sha256": "4a3da1275aef57dde5f4f2cac936224461d8063ddd3026177448048e32229ef0",
+  "split": "test",
+  "metrics": {
+    "samples": 394,
+    "accuracy": 0.7842639593908629,
+    "balanced_accuracy": 0.7858129868999435,
+    "macro_precision": 0.7854148946524313,
+    "macro_recall": 0.7858129868999435,
+    "macro_f1": 0.7837213877718529,
+    "per_class": {
+      "paper": {
+        "precision": 0.7096774193548387,
+        "recall": 0.8148148148148148,
+        "f1-score": 0.7586206896551724,
+        "support": 108.0
+      },
+      "plastic": {
+        "precision": 0.6753246753246753,
+        "recall": 0.7027027027027027,
+        "f1-score": 0.6887417218543046,
+        "support": 74.0
+      },
+      "organic": {
+        "precision": 0.8888888888888888,
+        "recall": 0.8648648648648649,
+        "f1-score": 0.8767123287671232,
+        "support": 74.0
+      },
+      "other": {
+        "precision": 0.8677685950413223,
+        "recall": 0.7608695652173914,
+        "f1-score": 0.8108108108108109,
+        "support": 138.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        88,
+        11,
+        5,
+        4
+      ],
+      [
+        13,
+        52,
+        0,
+        9
+      ],
+      [
+        6,
+        1,
+        64,
+        3
+      ],
+      [
+        17,
+        13,
+        3,
+        105
+      ]
+    ]
+  }
+}

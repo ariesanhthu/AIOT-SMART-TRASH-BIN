@@ -46,11 +46,10 @@ F plastic paper organic
   -> POST documents:commit (device update + event create)
 ```
 
-ESP gọi trực tiếp Cloudinary và Cloud Firestore qua HTTPS. `server-tmp` không
-nằm trong luồng này.
+ESP gọi trực tiếp Cloudinary và Cloud Firestore qua HTTPS, không qua backend.
 
-Nếu Cloudinary không trả về `secure_url`, firmware dừng chu kỳ và không ghi
-Firestore, tránh tạo event nhận diện thiếu ảnh.
+Nếu Cloudinary không trả về `secure_url`, firmware vẫn gửi event với
+`image_url: null` và in lỗi HTTP để có thể chẩn đoán riêng phần upload ảnh.
 
 ### 3.1 Upload ảnh Cloudinary
 
@@ -143,9 +142,8 @@ Trên wire, firmware bọc từng giá trị bằng kiểu của Firestore REST 
 
 ## 4. Xác thực và quyền ghi
 
-Firmware ưu tiên custom-token flow qua backend. Với cấu hình prototype, firmware
-cũng có thể đăng nhập bằng `FIREBASE_USER_EMAIL` và
-`FIREBASE_USER_PASSWORD`.
+Firmware đăng nhập bằng `FIREBASE_USER_EMAIL` và
+`FIREBASE_USER_PASSWORD` rồi dùng Firebase ID token để ghi Firestore.
 
 ID token cuối cùng phải có custom claim `device_id` trùng
 `FIREBASE_DEVICE_ID`. Firestore Rules chỉ cho thiết bị:
@@ -165,8 +163,8 @@ Enter F <plastic> <paper> <organic> to continue cloud sync
 Monitor fill levels plastic=10 paper=10 organic=10
 Cloudinary upload complete: ... JPEG bytes
 Cloudinary secure_url: https://res.cloudinary.com/...
-Firebase device authentication ready
-Firestore atomic commit: HTTP 200, event=evt_...
+Firebase direct authentication ready
+Firestore direct commit: HTTP 200, event=evt_...
 ```
 
 Mọi status trong khoảng `200..299` được firmware xem là thành công. Khi lỗi,

@@ -34,14 +34,17 @@ namespace aiot
     bool has_classification = false;
   };
 
-  // Synchronizes UTC for TLS verification and backend event timestamp fields.
+  // Synchronizes UTC for TLS verification and Firestore timestamps.
   bool InitializeCloudClock();
+
+  // Authenticates Firebase before uploading the JPEG.
+  bool PrepareCloudSync();
 
   // Uploads the JPEG to Cloudinary (if configured) and returns the resulting
   // secure_url, or an empty string if upload was skipped/failed.
   String UploadRecognitionImage(const CloudRecognition &recognition);
 
-  // Posts one CLASSIFY/ERROR event to the backend's device-events endpoint.
+  // Writes one CLASSIFY/ERROR event directly to Firestore.
   bool SyncRecognitionToCloud(const CloudRecognition &recognition,
                               const CompartmentFillLevels &fill_levels,
                               const String &image_url);

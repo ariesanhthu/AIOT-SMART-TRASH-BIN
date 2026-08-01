@@ -1,0 +1,14 @@
+{
+  "labels": [
+    "paper",
+    "plastic",
+    "organic",
+    "other"
+  ],
+  "class_to_index": {
+    "paper": 0,
+    "plastic": 1,
+    "organic": 2,
+    "other": 3
+  }
+}

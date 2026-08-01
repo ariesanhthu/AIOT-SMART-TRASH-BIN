@@ -108,6 +108,7 @@ namespace aiot
     bool g_ready = false;
     bool g_camera_web_ready = false;
     bool g_mdns_ready = false;
+    bool g_nano_transaction_active = false;
     volatile WifiState g_wifi_state = WifiState::kIdle;
     std::uint32_t g_last_camera_service_attempt_ms = 0;
     std::uint32_t g_last_nano_ready_response_ms = 0;
@@ -1080,8 +1081,9 @@ namespace aiot
 
     MaintainCameraWebServices();
     SendNanoReadyState();
+    Serial.println("Cloud sync: Firebase/Firestore direct");
     Serial.println(
-        "ESP ready (R 1); waiting for Nano T 1 or Serial Monitor 1 T 1 WIFI_RESET");
+        "ESP ready (R 1); commands: T 1, F <plastic> <paper> <organic>, WIFI_RESET");
   }
 
   void LoopFirmware()
@@ -1112,7 +1114,6 @@ namespace aiot
     {
       Serial.println("Test command received from Serial Monitor");
     }
-
     // Discard any standalone/stale F received before this accepted T 1. Only
     // the F sent by Nano after C belongs to this recognition event.
     g_fill_levels.received = false;
@@ -1156,17 +1157,29 @@ namespace aiot
     {
       Serial.println("Cloud sync skipped: Wi-Fi unavailable");
     }
-
-    CloudRecognition cloud_recognition{};
-    cloud_recognition.jpeg_data = telemetry.jpeg_data;
-    cloud_recognition.jpeg_length = telemetry.jpeg_length;
-    cloud_recognition.waste_type = NanoResultWasteType(result);
-    cloud_recognition.confidence = telemetry.has_classification
-                                       ? telemetry.classification.confidence
-                                       : 0.0F;
-    cloud_recognition.has_classification = telemetry.has_classification;
-    const String image_url = UploadRecognitionImage(cloud_recognition);
-    SyncRecognitionToCloud(cloud_recognition, g_fill_levels, image_url);
-    SendFullAlertsIfNeeded(g_fill_levels, &g_alert_state, image_url.c_str());
+    else if (!PrepareCloudSync())
+    {
+      Serial.println("Cloud sync skipped: Firebase authentication failed");
+    }
+    else
+    {
+      CloudRecognition cloud_recognition{};
+      cloud_recognition.jpeg_data = telemetry.jpeg_data;
+      cloud_recognition.jpeg_length = telemetry.jpeg_length;
+      cloud_recognition.waste_type = NanoResultWasteType(result);
+      cloud_recognition.confidence = telemetry.has_classification
+                                         ? telemetry.classification.confidence
+                                         : 0.0F;
+      cloud_recognition.has_classification = telemetry.has_classification;
+      const String image_url = UploadRecognitionImage(cloud_recognition);
+      cloud_synced = SyncRecognitionToCloud(
+          cloud_recognition, g_fill_levels, image_url);
+      SendFullAlertsIfNeeded(g_fill_levels, &g_alert_state,
+                             image_url.c_str());
+    }
+    if (command_from_nano)
+    {
+      FinishNanoTransaction(cloud_synced);
+    }
   }
 } // namespace aiot

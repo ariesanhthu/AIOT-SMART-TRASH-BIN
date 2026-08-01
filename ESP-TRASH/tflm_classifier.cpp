@@ -52,7 +52,7 @@ Status TflmClassifier::RegisterOperators() noexcept {
     return Status::kOk;
   }
 
-  // Exact V4 inventory: CONV_2D x5, MEAN x1, FULLY_CONNECTED x1.
+  // Exact V6 inventory: CONV_2D x5, MEAN x1, FULLY_CONNECTED x1.
   // Registering only unique operators keeps unused kernels out of flash.
   if (resolver_.AddConv2D() != kTfLiteOk ||
       resolver_.AddMean() != kTfLiteOk ||
@@ -70,7 +70,7 @@ Status TflmClassifier::Initialize() noexcept {
   }
   if (g_model_len != model_contract::kExpectedModelBytes ||
       std::strcmp(g_model_sha256, model_contract::kExpectedModelSha256) != 0) {
-    ESP_LOGE(kTag, "Embedded model does not match V4 contract");
+    ESP_LOGE(kTag, "Embedded model does not match V6 contract");
     return Status::kInvalidModel;
   }
 
@@ -206,15 +206,16 @@ Status TflmClassifier::ValidateTensorContract() noexcept {
 
 Status TflmClassifier::RunModelSelfTest() noexcept {
   // Deterministic synthetic input costs no flash asset and proves that this
-  // exact model can execute through the on-device quantized kernels. The
-  // reference LiteRT output is [-111, 6, -119, 127] (other); requiring the
-  // same well-separated top class tolerates small kernel-specific rounding.
+  // exact model can execute through the on-device quantized kernels. Requiring
+  // the same well-separated top class tolerates kernel-specific rounding.
   std::int8_t* value = input_->data.int8;
   std::int8_t* const end = value + input_->bytes;
   std::uint32_t index = 0U;
   while (value != end) {
-    const std::uint8_t channel =
-        static_cast<std::uint8_t>((index * 17U + 19U) & 0xFFU);
+    const std::uint8_t channel = static_cast<std::uint8_t>(
+        (index * model_contract::kSelfTestMultiplier +
+         model_contract::kSelfTestOffset) &
+        0xFFU);
     *value++ = static_cast<std::int8_t>(
         static_cast<std::int16_t>(channel) - 128);
     ++index;
@@ -225,22 +226,27 @@ Status TflmClassifier::RunModelSelfTest() noexcept {
     return Status::kModelSelfTestFailed;
   }
 
-  const std::int8_t paper = output_->data.int8[0];
-  const std::int8_t plastic = output_->data.int8[1];
-  const std::int8_t organic = output_->data.int8[2];
-  const std::int8_t other = output_->data.int8[3];
-  ESP_LOGI(kTag, "self-test raw=[%d,%d,%d,%d] expected_top=other",
-           static_cast<int>(paper), static_cast<int>(plastic),
-           static_cast<int>(organic), static_cast<int>(other));
-  constexpr int kMinimumRawMargin = 32;
-  if (static_cast<int>(other) - static_cast<int>(paper) <
-          kMinimumRawMargin ||
-      static_cast<int>(other) - static_cast<int>(plastic) <
-          kMinimumRawMargin ||
-      static_cast<int>(other) - static_cast<int>(organic) <
-          kMinimumRawMargin) {
-    ESP_LOGE(kTag, "Model self-test output mismatch");
-    return Status::kModelSelfTestFailed;
+  const std::size_t expected_index = static_cast<std::size_t>(
+      model_contract::kSelfTestExpectedClass);
+  const int expected_value = static_cast<int>(output_->data.int8[expected_index]);
+  ESP_LOGI(kTag, "self-test raw=[%d,%d,%d,%d] expected_top=%s",
+           static_cast<int>(output_->data.int8[0]),
+           static_cast<int>(output_->data.int8[1]),
+           static_cast<int>(output_->data.int8[2]),
+           static_cast<int>(output_->data.int8[3]),
+           model_contract::kLabels[expected_index]);
+  for (std::size_t class_index = 0U;
+       class_index < static_cast<std::size_t>(model_contract::kClassCount);
+       ++class_index) {
+    if (class_index == expected_index) {
+      continue;
+    }
+    const int margin =
+        expected_value - static_cast<int>(output_->data.int8[class_index]);
+    if (margin < model_contract::kSelfTestMinimumRawMargin) {
+      ESP_LOGE(kTag, "Model self-test output mismatch");
+      return Status::kModelSelfTestFailed;
+    }
   }
   return Status::kOk;
 }

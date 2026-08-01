@@ -134,6 +134,7 @@ void sendFillDataToESP();
 void resendFillDataToESP();
 void updateTriggerSensor();
 void readDebugCommands();
+void handleDebugCommand(const char *command);
 void startPendingTrigger();
 void startOpenBin(Servo &s, int binLedPin, const __FlashStringHelper* name);
 void finishNanoProcessing();
@@ -197,7 +198,7 @@ void setup() {
 #else
   Serial.println(F("=== CHE DO CHAY THAT KET NOI ESP32-CAM ==="));
   Serial.println(F("Dang bat tay voi ESP32-CAM..."));
-  Serial.println(F("Serial Monitor: S=do sensor ngay, M=monitor nhanh, T=ep ESP-CAM."));
+  Serial.println(F("Serial Monitor: S=do sensor, M=monitor, T=ep ESP-CAM, ?=tro giup."));
 #endif
 
   Serial.print(F("[SENSOR AI] TRIG=D9 ECHO=D8, trigger <= "));
@@ -586,30 +587,71 @@ void updateTriggerSensor() {
 
 void readDebugCommands() {
 #if !defined(TEST_MODE)
+  static char commandBuffer[8] = "";
+  static byte commandLength = 0;
+
   while (Serial.available() > 0) {
-    const int command = Serial.read();
-    if (command == 'T' || command == 't') {
-      if (currentState == STATE_IDLE) {
-        manualTriggerPending = true;
-        Serial.println(F("[TEST] Da xep trigger thu cong cho ESP-CAM."));
-      } else {
-        Serial.println(F("[TEST] Bo qua T: transaction dang xu ly."));
+    const int received = Serial.read();
+    if (received == '\r') continue;
+    if (received == '\n') {
+      if (commandLength > 0) {
+        commandBuffer[commandLength] = '\0';
+        handleDebugCommand(commandBuffer);
       }
+      commandLength = 0;
+      commandBuffer[0] = '\0';
+      continue;
     }
-    else if (command == 'S' || command == 's') {
-      const long distance = readTriggerUltrasonicDistance();
-      printTriggerSensorStatus(distance, true);
+
+    if (received < 32 || received > 126) continue;
+    if ((size_t)commandLength + 1U >= sizeof(commandBuffer)) {
+      commandLength = 0;
+      commandBuffer[0] = '\0';
+      Serial.println(F("[TEST] Lenh Monitor qua dai; da huy."));
+      continue;
     }
-    else if (command == 'M' || command == 'm') {
-      triggerVerboseMonitor = !triggerVerboseMonitor;
-      Serial.println(triggerVerboseMonitor
-                         ? F("[TEST] Monitor sensor nhanh: ON (250ms).")
-                         : F("[TEST] Monitor sensor nhanh: OFF (1000ms)."));
-    }
-    else if (command == '?') {
-      Serial.println(F("[TEST] S=do ngay, M=monitor nhanh, T=ep ESP-CAM."));
-    }
+
+    commandBuffer[commandLength++] = (char)received;
+    commandBuffer[commandLength] = '\0';
   }
+#endif
+}
+
+void handleDebugCommand(const char *command) {
+#if !defined(TEST_MODE)
+  if (command == NULL) return;
+
+  if (strcmp(command, "T") == 0 || strcmp(command, "t") == 0) {
+    if (currentState == STATE_IDLE) {
+      manualTriggerPending = true;
+      Serial.println(F("[TEST] Da xep trigger thu cong cho ESP-CAM."));
+    } else {
+      Serial.println(F("[TEST] Bo qua T: transaction dang xu ly."));
+    }
+    return;
+  }
+
+  if (strcmp(command, "S") == 0 || strcmp(command, "s") == 0) {
+    const long distance = readTriggerUltrasonicDistance();
+    printTriggerSensorStatus(distance, true);
+    return;
+  }
+
+  if (strcmp(command, "M") == 0 || strcmp(command, "m") == 0) {
+    triggerVerboseMonitor = !triggerVerboseMonitor;
+    Serial.println(triggerVerboseMonitor
+                       ? F("[TEST] Monitor sensor nhanh: ON (250ms).")
+                       : F("[TEST] Monitor sensor nhanh: OFF (1000ms)."));
+    return;
+  }
+
+  if (strcmp(command, "?") == 0) {
+    Serial.println(F("[TEST] S=do ngay, M=monitor nhanh, T=ep ESP-CAM."));
+    return;
+  }
+
+  Serial.print(F("[TEST] Lenh khong hop le: "));
+  Serial.println(command);
 #endif
 }
 

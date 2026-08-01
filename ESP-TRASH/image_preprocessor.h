@@ -25,9 +25,9 @@ struct ImageView {
 };
 
 // Center-crops an interleaved RGB image to a square, resizes it with a
-// deterministic nearest-neighbor mapping, and writes quantized values directly
-// into the TFLM input tensor. Sampling offsets are cached and the hot loops use
-// pointer arithmetic. No heap allocation occurs in Configure() or Run().
+// deterministic nearest-neighbor mapping, applies bounded mean-luminance
+// normalization, and writes quantized values directly into the TFLM input
+// tensor. Sampling offsets are cached and no heap allocation occurs.
 class ImagePreprocessor final {
  public:
   ImagePreprocessor() = default;

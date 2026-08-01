@@ -20,6 +20,8 @@ try:
         IMAGE_EXTENSIONS,
         IMAGE_SIZE,
         LABELS,
+        LUMINANCE_NORMALIZATION,
+        RGB565_INPUT,
         SPLITS,
         resolve_input_path,
     )
@@ -30,6 +32,8 @@ except ImportError:
         IMAGE_EXTENSIONS,
         IMAGE_SIZE,
         LABELS,
+        LUMINANCE_NORMALIZATION,
+        RGB565_INPUT,
         SPLITS,
         resolve_input_path,
     )
@@ -173,6 +177,18 @@ def preprocess_file(path: str | Path) -> np.ndarray:
     return tensor.numpy().astype(np.float32, copy=False)
 
 
+def preprocess_file_raw(path: str | Path) -> np.ndarray:
+    """Return center-cropped/resized RGB without the deployment input contract."""
+
+    resolved = resolve_input_path(path)
+    encoded = tf.io.read_file(tf.constant(str(resolved)))
+    decoded = tf.io.decode_image(
+        encoded, channels=IMAGE_CHANNELS, expand_animations=False
+    )
+    tensor = _preprocess_decoded(decoded, apply_contract=False)
+    return tensor.numpy().astype(np.float32, copy=False)
+
+
 def preprocess_encoded(encoded: bytes) -> np.ndarray:
     tensor = _preprocess_decoded(
         tf.io.decode_image(encoded, channels=IMAGE_CHANNELS, expand_animations=False)
@@ -224,7 +240,9 @@ def _decode_and_preprocess(path: tf.Tensor) -> tf.Tensor:
     return _preprocess_decoded(decoded)
 
 
-def _preprocess_decoded(image: tf.Tensor) -> tf.Tensor:
+def _preprocess_decoded(
+    image: tf.Tensor, *, apply_contract: bool = True
+) -> tf.Tensor:
     image.set_shape([None, None, IMAGE_CHANNELS])
     shape = tf.shape(image)
     height, width = shape[0], shape[1]
@@ -245,7 +263,67 @@ def _preprocess_decoded(image: tf.Tensor) -> tf.Tensor:
     indices = tf.minimum(indices, square_size - 1)
     resized = tf.gather(tf.gather(square, indices, axis=0), indices, axis=1)
     resized.set_shape([IMAGE_SIZE, IMAGE_SIZE, IMAGE_CHANNELS])
+    if apply_contract:
+        resized = apply_input_contract_u8(resized)
     return tf.image.convert_image_dtype(resized, tf.float32)
+
+
+def apply_input_contract_u8(image: tf.Tensor) -> tf.Tensor:
+    """Apply configured sensor quantization and exposure normalization."""
+
+    result = tf.cast(image, tf.uint8)
+    if RGB565_INPUT:
+        result = simulate_rgb565_u8(result)
+    if LUMINANCE_NORMALIZATION:
+        result = normalize_luminance_u8(result)
+    return tf.ensure_shape(result, [IMAGE_SIZE, IMAGE_SIZE, IMAGE_CHANNELS])
+
+
+def simulate_rgb565_u8(image: tf.Tensor) -> tf.Tensor:
+    """Match ESP32 RGB565 expansion: R/B multiples of 8, G multiples of 4."""
+
+    pixels = tf.cast(image, tf.int32)
+    steps = tf.constant([8, 4, 8], dtype=tf.int32)
+    quantized = (pixels // steps) * steps
+    return tf.ensure_shape(
+        tf.cast(quantized, tf.uint8), [IMAGE_SIZE, IMAGE_SIZE, IMAGE_CHANNELS]
+    )
+
+
+def normalize_luminance_u8(image: tf.Tensor) -> tf.Tensor:
+    """Apply the configured bounded integer luminance normalization.
+
+    Images whose mean luma is already in [96, 160] are unchanged. Outside that dead-band a
+    single RGB gain moves the mean toward the nearest edge, capped to
+    [0.75, 1.332] in Q8 fixed point so noise and clipped colors are not
+    amplified aggressively.
+    """
+
+    pixels = tf.cast(image, tf.int32)
+    luma = (
+        77 * pixels[..., 0]
+        + 150 * pixels[..., 1]
+        + 29 * pixels[..., 2]
+        + 128
+    ) // 256
+    pixel_count = tf.size(luma, out_type=tf.int32)
+    mean_luma = (tf.reduce_sum(luma) + pixel_count // 2) // pixel_count
+    safe_mean = tf.maximum(mean_luma, 1)
+    brighten_gain = tf.minimum(
+        341, (96 * 256 + safe_mean // 2) // safe_mean
+    )
+    darken_gain = tf.maximum(
+        192, (160 * 256 + safe_mean // 2) // safe_mean
+    )
+    gain_q8 = tf.where(
+        mean_luma < 96,
+        brighten_gain,
+        tf.where(mean_luma > 160, darken_gain, tf.constant(256, tf.int32)),
+    )
+    normalized = tf.clip_by_value((pixels * gain_q8 + 128) // 256, 0, 255)
+    return tf.ensure_shape(
+        tf.cast(normalized, tf.uint8), [IMAGE_SIZE, IMAGE_SIZE, IMAGE_CHANNELS]
+    )
 
 
 def _augment(image: tf.Tensor) -> tf.Tensor:

@@ -1,0 +1,19 @@
+{
+  "samples": 394,
+  "float_int8_class_agreement": 0.9670050761421319,
+  "accuracy_drop": -0.002538071065989911,
+  "max_accuracy_drop": 0.03,
+  "min_agreement": 0.95,
+  "min_macro_f1": 0.78,
+  "min_class_recall": 0.7,
+  "int8_macro_f1": 0.7881185499451473,
+  "int8_min_class_recall": 0.7246376811594203,
+  "gates": {
+    "accuracy_drop_passed": true,
+    "agreement_passed": true,
+    "model_size_passed": true,
+    "macro_f1_passed": true,
+    "class_recall_passed": true
+  },
+  "passed": true
+}

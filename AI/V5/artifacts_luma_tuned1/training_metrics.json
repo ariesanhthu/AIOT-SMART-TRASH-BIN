@@ -1,0 +1,162 @@
+{
+  "model_version": "tinycnn-v5-luma-env-balanced",
+  "stage": "mild_balanced_fine_tune",
+  "dataset": {
+    "root": "F:\\ANHTHU\\1-HCMUS\\1 - STUDY\\0-now\\AIOT\\PROJECT\\CODE\\AIOT-SMART-TRASH-BIN\\AI\\V5\\dataset_prepared",
+    "dataset_sha256": "4a3da1275aef57dde5f4f2cac936224461d8063ddd3026177448048e32229ef0",
+    "manifest": "F:\\ANHTHU\\1-HCMUS\\1 - STUDY\\0-now\\AIOT\\PROJECT\\CODE\\AIOT-SMART-TRASH-BIN\\AI\\V5\\dataset_prepared\\manifest.csv",
+    "counts": {
+      "train": {
+        "paper": 403,
+        "plastic": 347,
+        "organic": 347,
+        "other": 573,
+        "total": 1670
+      },
+      "validation": {
+        "paper": 83,
+        "plastic": 61,
+        "organic": 61,
+        "other": 102,
+        "total": 307
+      },
+      "test": {
+        "paper": 108,
+        "plastic": 74,
+        "organic": 74,
+        "other": 138,
+        "total": 394
+      }
+    },
+    "total": 2371
+  },
+  "model_parameters": 53452,
+  "best_epoch": 14,
+  "epochs_ran": 20,
+  "training_seconds": 306.637,
+  "validation": {
+    "samples": 307,
+    "accuracy": 0.739413680781759,
+    "balanced_accuracy": 0.7388260854410893,
+    "macro_precision": 0.7373793065869569,
+    "macro_recall": 0.7388260854410893,
+    "macro_f1": 0.7379053407711251,
+    "per_class": {
+      "paper": {
+        "precision": 0.7160493827160493,
+        "recall": 0.6987951807228916,
+        "f1-score": 0.7073170731707317,
+        "support": 83.0
+      },
+      "plastic": {
+        "precision": 0.5846153846153846,
+        "recall": 0.6229508196721312,
+        "f1-score": 0.6031746031746031,
+        "support": 61.0
+      },
+      "organic": {
+        "precision": 0.8688524590163934,
+        "recall": 0.8688524590163934,
+        "f1-score": 0.8688524590163934,
+        "support": 61.0
+      },
+      "other": {
+        "precision": 0.78,
+        "recall": 0.7647058823529411,
+        "f1-score": 0.7722772277227723,
+        "support": 102.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        58,
+        14,
+        5,
+        6
+      ],
+      [
+        9,
+        38,
+        1,
+        13
+      ],
+      [
+        5,
+        0,
+        53,
+        3
+      ],
+      [
+        9,
+        13,
+        2,
+        78
+      ]
+    ]
+  },
+  "test": {
+    "samples": 394,
+    "accuracy": 0.7766497461928934,
+    "balanced_accuracy": 0.7804924489707098,
+    "macro_precision": 0.7734058741296936,
+    "macro_recall": 0.7804924489707098,
+    "macro_f1": 0.775553227288347,
+    "per_class": {
+      "paper": {
+        "precision": 0.7192982456140351,
+        "recall": 0.7592592592592593,
+        "f1-score": 0.7387387387387387,
+        "support": 108.0
+      },
+      "plastic": {
+        "precision": 0.6746987951807228,
+        "recall": 0.7567567567567568,
+        "f1-score": 0.7133757961783439,
+        "support": 74.0
+      },
+      "organic": {
+        "precision": 0.8378378378378378,
+        "recall": 0.8378378378378378,
+        "f1-score": 0.8378378378378378,
+        "support": 74.0
+      },
+      "other": {
+        "precision": 0.8617886178861789,
+        "recall": 0.7681159420289855,
+        "f1-score": 0.8122605363984674,
+        "support": 138.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        82,
+        14,
+        6,
+        6
+      ],
+      [
+        10,
+        56,
+        0,
+        8
+      ],
+      [
+        8,
+        1,
+        62,
+        3
+      ],
+      [
+        14,
+        12,
+        6,
+        106
+      ]
+    ]
+  },
+  "targeted_error": {
+    "organic_total": 74,
+    "organic_predicted_as_paper": 8,
+    "organic_to_paper_rate": 0.10810810810810811
+  }
+}
