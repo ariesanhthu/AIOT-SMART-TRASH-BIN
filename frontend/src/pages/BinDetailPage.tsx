@@ -92,52 +92,58 @@ export const BinDetailPage: React.FC<Props> = ({ bins }) => {
           </div>
           <div className="overflow-x-auto">
             <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Thời gian</th>
-                  <th>Ảnh</th>
-                  <th>Loại rác</th>
-                  <th>Ngăn mở</th>
-                  <th>Kết quả</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((row, i) => {
-                  const wt = row.wasteType && row.wasteType !== 'REJECTED' ? WASTE_TYPES[row.wasteType] : null;
-                  return (
-                    <tr key={i}>
-                      <td className="font-mono" style={{ fontSize: '13px', color: 'var(--outline)' }}>{row.time}</td>
-                      <td>
-                        {row.imageUrl ? (
-                          <img
-                            src={row.imageUrl}
-                            alt="Ảnh chụp"
-                            style={{ width: '36px', height: '36px', objectFit: 'cover', borderRadius: '6px', cursor: 'pointer' }}
-                            onClick={() => setPreviewUrl(row.imageUrl)}
-                          />
-                        ) : (
-                          <span style={{ color: 'var(--outline-variant)', fontSize: '12px' }}>—</span>
-                        )}
-                      </td>
-                      <td>
-                        {wt ? (
-                          <span className={`badge badge-pill ${wt.bgClass}`}>{wt.label}</span>
-                        ) : (
-                          <span className="badge badge-pill badge-error">Từ chối</span>
-                        )}
-                      </td>
-                      <td style={{ color: 'var(--outline)' }}>Ngăn {row.compartment}</td>
-                      <td>
-                        {row.result === 'success' ? (
-                          <span className="badge badge-pill badge-success">Thành công</span>
-                        ) : (
-                          <span className="badge badge-pill badge-error">Từ chối</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
+            <thead>
+              <tr>
+                <th>Ngày</th>
+                <th>Thời gian</th>
+                <th>Ảnh</th>
+                <th>Loại rác</th>
+                <th>Ngăn mở</th>
+                <th>Độ tin cậy</th>
+                <th>Kết quả</th>
+              </tr>
+            </thead>
+            <tbody>
+              {history.map((row, i) => {
+                const wt = row.wasteType && row.wasteType !== 'REJECTED' ? WASTE_TYPES[row.wasteType] : null;
+                return (
+                  <tr key={i}>
+                    <td className="font-mono" style={{ fontSize: '13px', color: 'var(--outline)' }}>{row.date}</td>
+                    <td className="font-mono" style={{ fontSize: '13px', color: 'var(--outline)' }}>{row.time}</td>
+                    <td>
+                      {row.imageUrl ? (
+                        <img
+                          src={row.imageUrl}
+                          alt="Ảnh chụp"
+                          style={{ width: '36px', height: '36px', objectFit: 'cover', borderRadius: '6px', cursor: 'pointer' }}
+                          onClick={() => setPreviewUrl(row.imageUrl)}
+                        />
+                      ) : (
+                        <span style={{ color: 'var(--outline-variant)', fontSize: '12px' }}>—</span>
+                      )}
+                    </td>
+                    <td>
+                      {wt ? (
+                        <span className={`badge badge-pill ${wt.bgClass}`}>{wt.label}</span>
+                      ) : (
+                        <span className="badge badge-pill badge-error">Từ chối</span>
+                      )}
+                    </td>
+                    <td style={{ color: 'var(--outline)' }}>Ngăn {row.compartment}</td>
+                    <td style={{ fontWeight: 600, color: row.confidence != null && row.confidence < 0.6 ? 'var(--error)' : 'var(--on-surface)' }}>
+                      {row.confidence != null ? `${Math.round(row.confidence * 100)}%` : '—'}
+                    </td>
+                    <td>
+                      {row.result === 'success' ? (
+                        <span className="badge badge-pill badge-success">Thành công</span>
+                      ) : (
+                        <span className="badge badge-pill badge-error">Từ chối</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
             </table>
           </div>
         </div>

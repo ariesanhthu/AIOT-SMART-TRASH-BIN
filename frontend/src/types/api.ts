@@ -67,11 +67,13 @@ export interface BinThresholds {
 }
 
 export interface ClassifyHistoryRow {
+  date: string;
   time: string;
   wasteType: WasteTypeKey | 'REJECTED' | null;
   compartment: string;
   result: 'success' | 'rejected';
   imageUrl: string | null; 
+  confidence: number | null;
 }
 
 export interface DailyChartData {

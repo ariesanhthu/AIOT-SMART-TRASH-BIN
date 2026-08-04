@@ -15,15 +15,19 @@ export async function fetchClassifyHistory(deviceId: string, limit = 20): Promis
   const events = await fetchEvents(deviceId, 'CLASSIFY', limit);
   return events
     .filter((e) => e.wasteType !== null)
-    .map((e) => ({
-      time: e.deviceTimestamp ? new Date(e.deviceTimestamp).toLocaleTimeString('vi-VN') : '',
-      wasteType: e.wasteType,
-      compartment: e.targetCompartment ?? '',
-      result: e.wasteType === 'REJECTED' ? 'rejected' : 'success',
-      imageUrl: e.imageUrl,   
-    }));
+    .map((e) => {
+      const ts = e.deviceTimestamp ? new Date(e.deviceTimestamp) : null;
+      return {
+        date: ts ? ts.toLocaleDateString('vi-VN') : '',
+        time: ts ? ts.toLocaleTimeString('vi-VN') : '',
+        wasteType: e.wasteType,
+        compartment: e.targetCompartment ?? '',
+        result: e.wasteType === 'REJECTED' ? 'rejected' : 'success',
+        imageUrl: e.imageUrl,
+        confidence: e.aiConfidence,
+      };
+    });
 }
-
 /**
  * Cảnh báo đầy = event FULL_ALERT. Chỉ đọc, KHÔNG có khái niệm "đã xử lý" ở
  * backend hiện tại (xem De_xuat_thiet_ke_DB.md mục 5 — chưa có lifecycle
