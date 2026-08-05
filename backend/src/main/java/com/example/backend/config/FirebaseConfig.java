@@ -23,7 +23,7 @@ public class FirebaseConfig {
     @Value("${firebase.credentials.path:}")
     private String credentialsPath;
 
-    @Bean
+    @Bean(destroyMethod = "delete")
     public FirebaseApp firebaseApp() throws IOException {
         if (!FirebaseApp.getApps().isEmpty()) {
             return FirebaseApp.getInstance();

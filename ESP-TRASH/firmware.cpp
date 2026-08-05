@@ -112,11 +112,13 @@ namespace aiot
     volatile WifiState g_wifi_state = WifiState::kIdle;
     std::uint32_t g_last_camera_service_attempt_ms = 0;
     std::uint32_t g_last_nano_ready_response_ms = 0;
+    std::uint32_t g_last_wifi_reconnect_attempt_ms = 0;
     CompartmentFillLevels g_fill_levels;
     CompartmentAlertState g_alert_state;
 
     constexpr std::uint32_t kCameraServiceRetryIntervalMs = 5000;
     constexpr std::uint32_t kNanoReadyResponseMinIntervalMs = 500;
+    constexpr std::uint32_t kWifiReconnectIntervalMs = 15000;
 
     void LogMemory(const char *const stage)
     {
@@ -363,18 +365,6 @@ namespace aiot
       }
     }
 
-    bool WaitForWifi(const std::uint32_t timeout_ms)
-    {
-      const std::uint32_t started_at = millis();
-      while (WiFi.status() != WL_CONNECTED &&
-             millis() - started_at < timeout_ms)
-      {
-        delay(250);
-        Serial.print('.');
-      }
-      return WiFi.status() == WL_CONNECTED;
-    }
-
     const char *WifiStateName(const WifiState state)
     {
       switch (state)
@@ -393,66 +383,17 @@ namespace aiot
 
     void SetWifiState(const WifiState state)
     {
+      if (g_wifi_state == state)
+      {
+        return;
+      }
       g_wifi_state = state;
       Serial.printf("Wi-Fi state: %s\n", WifiStateName(state));
-    }
-
-    bool ConnectStoredWifi(const std::uint32_t timeout_ms)
-    {
-      if (WiFi.status() == WL_CONNECTED)
-      {
-        SetWifiState(WifiState::kConnected);
-        return true;
-      }
-
-      SetWifiState(WifiState::kConnectingStored);
-      Serial.print("Connecting with stored Wi-Fi credentials");
-      WiFi.begin();
-      const bool connected = WaitForWifi(timeout_ms);
-      Serial.println();
-
-      if (!connected)
-      {
-        SetWifiState(WifiState::kOffline);
-        Serial.println("Stored Wi-Fi connection timed out");
-        return false;
-      }
-
-      SetWifiState(WifiState::kConnected);
-      Serial.printf("Wi-Fi connected: IP=%s RSSI=%d dBm\n",
-                    WiFi.localIP().toString().c_str(), WiFi.RSSI());
-      return true;
     }
 
     bool HasConfiguredWifi()
     {
       return WIFI_SSID[0] != '\0';
-    }
-
-    bool ConnectConfiguredWifi(const std::uint32_t timeout_ms)
-    {
-      if (!HasConfiguredWifi())
-      {
-        return false;
-      }
-
-      SetWifiState(WifiState::kConnectingStored);
-      Serial.print("Connecting with secrets.h Wi-Fi credentials");
-      WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-      const bool connected = WaitForWifi(timeout_ms);
-      Serial.println();
-
-      if (!connected)
-      {
-        SetWifiState(WifiState::kOffline);
-        Serial.println("secrets.h Wi-Fi connection timed out");
-        return false;
-      }
-
-      SetWifiState(WifiState::kConnected);
-      Serial.printf("Wi-Fi connected: IP=%s RSSI=%d dBm\n",
-                    WiFi.localIP().toString().c_str(), WiFi.RSSI());
-      return true;
     }
 
     bool InitializeWifi()
@@ -465,12 +406,47 @@ namespace aiot
       WiFi.setSleep(false);
       WiFi.setAutoReconnect(true);
 
-      bool connected = ConnectStoredWifi(network_config::kInitialWifiTimeoutMs);
-      if (!connected)
+      if (WiFi.status() == WL_CONNECTED)
       {
-        connected = ConnectConfiguredWifi(network_config::kInitialWifiTimeoutMs);
+        SetWifiState(WifiState::kConnected);
+        return true;
       }
-      return connected;
+
+      // Bat dau ket noi nhung khong cho. UART, camera va AI phai san sang ngay
+      // ca khi router khong ton tai.
+      SetWifiState(WifiState::kConnectingStored);
+      if (HasConfiguredWifi())
+      {
+        Serial.println("Starting Wi-Fi with secrets.h credentials (non-blocking)");
+        WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+      }
+      else
+      {
+        Serial.println("Starting Wi-Fi with stored credentials (non-blocking)");
+        WiFi.begin();
+      }
+      g_last_wifi_reconnect_attempt_ms = millis();
+      return WiFi.status() == WL_CONNECTED;
+    }
+
+    void MaintainWifiConnection()
+    {
+      if (WiFi.status() == WL_CONNECTED)
+      {
+        SetWifiState(WifiState::kConnected);
+        return;
+      }
+
+      const std::uint32_t now = millis();
+      if (now - g_last_wifi_reconnect_attempt_ms < kWifiReconnectIntervalMs)
+      {
+        return;
+      }
+
+      g_last_wifi_reconnect_attempt_ms = now;
+      SetWifiState(WifiState::kOffline);
+      Serial.println("Wi-Fi offline; reconnect requested in background");
+      WiFi.reconnect();
     }
 
     void MaintainCameraWebServices()
@@ -514,26 +490,6 @@ namespace aiot
           Serial.println("Camera mDNS start failed; use the printed ESP32 IP");
         }
       }
-    }
-
-    bool EnsureWifiConnected()
-    {
-      if (WiFi.status() == WL_CONNECTED)
-      {
-        return true;
-      }
-
-      Serial.println("Wi-Fi disconnected; reconnecting");
-      WiFi.reconnect();
-      if (WaitForWifi(network_config::kReconnectTimeoutMs))
-      {
-        Serial.printf("Wi-Fi reconnected: IP=%s\n",
-                      WiFi.localIP().toString().c_str());
-        return true;
-      }
-
-      Serial.println();
-      return ConnectStoredWifi(network_config::kReconnectTimeoutMs);
     }
 
     void ResetWifiCredentialsAndRestart()
@@ -898,7 +854,7 @@ namespace aiot
         Serial.println("No JPEG available; telemetry upload skipped");
         return false;
       }
-      if (!EnsureWifiConnected())
+      if (WiFi.status() != WL_CONNECTED)
       {
         Serial.println("No Wi-Fi; telemetry upload skipped");
         return false;
@@ -1055,15 +1011,11 @@ namespace aiot
     Serial.println("UART2: 9600 8N1, RX=GPIO13, TX=GPIO14");
     LogMemory("boot");
 
-    // Connect before allocating camera/TFLM resources so NTP is ready early.
+    // Chi bat dau Wi-Fi; khong cho ket noi truoc khi khoi dong AI/UART.
     const bool wifi_connected = InitializeWifi();
     if (!wifi_connected)
     {
-      Serial.println("Wi-Fi unavailable; local AI and UART will still start");
-    }
-    else
-    {
-      InitializeCloudClock();
+      Serial.println("Wi-Fi is connecting in background; local AI/UART continue");
     }
     LogMemory("network ready");
 
@@ -1088,6 +1040,7 @@ namespace aiot
 
   void LoopFirmware()
   {
+    MaintainWifiConnection();
     MaintainCameraWebServices();
 
     bool command_from_nano = false;
@@ -1153,7 +1106,9 @@ namespace aiot
     }
 
     bool cloud_synced = false;
-    if (!EnsureWifiConnected())
+    // Mot transaction chi thu cloud mot lan. Neu Wi-Fi dang mat thi bo qua
+    // ngay; khong chan ket qua AI va khong reconnect/POST lap trong transaction.
+    if (WiFi.status() != WL_CONNECTED)
     {
       Serial.println("Cloud sync skipped: Wi-Fi unavailable");
     }

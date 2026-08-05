@@ -9,6 +9,7 @@ Giao tiếp UART2 dùng 9600 baud, mỗi lệnh kết thúc bằng `\n`.
 | Nano → ESP32-CAM | `T 1` | Chụp ảnh và chạy AI |
 | ESP32-CAM → Nano | `C 0..3` | 0=lỗi, 1=plastic, 2=paper, 3=organic |
 | Nano → ESP32-CAM | `F plastic paper organic` | Mức đầy phần trăm của ba ngăn |
+| ESP32-CAM → Nano | `D 0..1` | Cloud lỗi/thành công; không thay đổi kết quả AI cục bộ |
 
 Ví dụ:
 
@@ -19,7 +20,9 @@ Nano -> ESP: F 10 10 10
 ```
 
 ESP giữ JPEG của lần nhận diện trong RAM sau khi trả `C 2`. Chỉ khi nhận được
-`F 10 10 10` của cùng chu kỳ, ESP mới bắt đầu đồng bộ cloud.
+`F 10 10 10` của cùng chu kỳ, ESP mới bắt đầu đồng bộ cloud. Nano gửi `F` một
+lần, không gửi lại để tránh lặp thao tác POST. Nếu Wi-Fi đang mất, ESP trả `D 0`
+ngay và vẫn hoàn tất transaction cục bộ.
 
 ## 2. Test end-to-end bằng Serial Monitor
 

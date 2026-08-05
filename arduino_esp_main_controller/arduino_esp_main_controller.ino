@@ -50,7 +50,9 @@ const int ECHO_HUUCO  = A4;
 const int TRIG_HUUCO  = A5; 
 
 const float BIN_HEIGHT_CM = 25.0; // Độ cao thiết kế của thùng rác (cm)
-const int FULL_THRESHOLD_PERCENT = 80; // Ngưỡng báo đầy (%): >= 80% xem như đầy
+// Cảm biến đặt trên nắp: chiều cao rác = chiều cao thùng - khoảng cách đo được.
+// Ngăn đầy khi chiều cao rác > 10 cm. Timeout cũng được xử lý như trạng thái đầy.
+const float FULL_THRESHOLD_HEIGHT_CM = 10.0;
 
 // ==== Cấu hình 4 LED Báo Hiệu (12, 6, 5, 4) ====
 const int LED_NHUA  = 12;  // LED ngăn Nhựa
@@ -66,7 +68,8 @@ const int PIN_SERVO_NHUA  = 7;
 
 const int ANGLE_CLOSE = 0;
 const int ANGLE_OPEN  = 90;
-const unsigned long OPEN_DURATION_MS = 5000; // Mở Servo & Sáng đèn trong 5 giây
+const unsigned long OPEN_DURATION_MS = 5000; // Mở servo trong 5 giây
+const unsigned long POST_CLOSE_SETTLE_MS = 1000; // Chờ 1s sau khi đóng rồi đo lần 2
 
 // ==== Cấu hình Thời gian kiểm soát luồng ====
 const unsigned long READY_PROBE_INTERVAL_MS = 3000;
@@ -74,7 +77,10 @@ const unsigned long UART_ACK_TIMEOUT_MS = 1500;
 const unsigned long LABEL_TIMEOUT_MS = 25000;
 const unsigned long CLOUD_TIMEOUT_MS = 120000;
 const unsigned long COOLDOWN_MS = 2000;       // Thời gian nghỉ giữa các lần hoạt động
-const unsigned long ERROR_BLINK_MS = 3000;    // Đèn nhấp nháy chớp lỗi/đầy trong 3 giây
+const unsigned long CLASSIFICATION_BLINK_MS = 3000; // LED ngăn được phân loại nhấp nháy trong 3 giây
+const unsigned long CLASSIFICATION_LED_TOGGLE_MS = 200;
+const unsigned long AI_LOADING_TOGGLE_MS = 1000;
+const unsigned long AI_ERROR_TOGGLE_MS = 250;
 const unsigned long FILL_CHECK_INTERVAL_MS = 10000; // Định kỳ đo độ đầy mỗi 10s
 const byte MAX_UART_ATTEMPTS = 3;
 
@@ -95,17 +101,25 @@ enum State {
   STATE_COOLDOWN
 };
 State currentState = STATE_WAIT_ESP_READY;
+
+enum AiLedState {
+  AI_LED_LOADING,
+  AI_LED_READY,
+  AI_LED_ERROR
+};
+AiLedState aiLedState = AI_LED_LOADING;
 unsigned long stateStartTime = 0;
 unsigned long lastFillCheckTime = 0; 
 unsigned long blinkStartTime = 0;
 unsigned long lastTriggerSampleTime = 0;
 unsigned long lastTriggerStatusTime = 0;
 unsigned long servoOpenedAt = 0;
+unsigned long servoClosedAt = 0;
 unsigned long lastTriggerPulseUs = 0;
 unsigned long triggerReadCount = 0;
 unsigned long triggerTimeoutCount = 0;
 
-int activeBlinkPin = -1; // Lưu chân LED cần nhấp nháy khi có lỗi hoặc báo đầy
+int activeBlinkPin = -1; // LED ngăn đang nhấp nháy để báo kết quả phân loại
 byte uartAttempts = 0;
 byte triggerNearSamples = 0;
 byte triggerClearSamples = 0;
@@ -115,8 +129,12 @@ bool manualTriggerPending = false;
 bool triggerVerboseMonitor = false;
 bool lastTriggerEchoBefore = false;
 bool lastTriggerEchoAfter = false;
+bool lastClassificationSucceeded = false;
+bool binFullNhua = false;
+bool binFullGiay = false;
+bool binFullHuuCo = false;
+bool postCloseMeasurementPending = false;
 Servo *activeServo = NULL;
-int activeServoLedPin = -1;
 char pendingFillMessage[16] = "";
 char uartRxBuffer[16] = "";
 byte uartRxLength = 0;
@@ -128,21 +146,26 @@ int fillNhua = 0, fillGiay = 0, fillHuuCo = 0;
 long readUltrasonicDistance(int trigPin, int echoPin);
 long readTriggerUltrasonicDistance();
 void printTriggerSensorStatus(long distance, bool forcePrint);
-int calculateFillPercentage(int trigPin, int echoPin);
+int calculateFillPercentageFromDistance(long distance);
+int measureBin(int trigPin, int echoPin, bool *isFull,
+               const __FlashStringHelper* name);
 void measureAllBins();
+void updateBinStatusLeds();
 void sendFillDataToESP();
 void resendFillDataToESP();
 void updateTriggerSensor();
 void readDebugCommands();
 void handleDebugCommand(const char *command);
 void startPendingTrigger();
-void startOpenBin(Servo &s, int binLedPin, const __FlashStringHelper* name);
+void startOpenBin(Servo &s, const __FlashStringHelper* name);
 void finishNanoProcessing();
 void closeAll();
 void sendReadyProbe();
 void sendTrigger();
 void clearSerialBuffer();
 void setAllLEDs(bool state);
+void setAiLedState(AiLedState state);
+void updateAiLed();
 void blinkSingleLED(int pin, int interval);
 void startBlink(int pin);
 void updateBlink();
@@ -173,6 +196,7 @@ void setup() {
   pinMode(LED_AI, OUTPUT);
   
   setAllLEDs(false); // Tắt tất cả LED khi khởi động
+  setAiLedState(AI_LED_LOADING);
 
 #if !defined(TEST_MODE)
   espSerial.begin(9600);
@@ -195,6 +219,7 @@ void setup() {
   Serial.println(F("=== CHE DO TEST MODE (SERIAL MONITOR) ==="));
   Serial.println(F("Quy uoc: C 0/1/2/3, A F, D 0/1"));
   currentState = STATE_IDLE;
+  setAiLedState(AI_LED_READY);
 #else
   Serial.println(F("=== CHE DO CHAY THAT KET NOI ESP32-CAM ==="));
   Serial.println(F("Dang bat tay voi ESP32-CAM..."));
@@ -221,7 +246,9 @@ void loop() {
   // Không đo cảm biến trigger ở đây. D9/D8 chỉ được đo trong STATE_IDLE.
   // Sau khi gửi T 1, Nano dừng đo cho đến khi toàn bộ transaction hoàn tất.
   readDebugCommands();
+  updateAiLed();
   updateBlink();
+  updateBinStatusLeds();
 
   // Chỉ cập nhật cache khi rảnh. Không gửi F tự do vì F phải thuộc đúng
   // transaction vừa nhận kết quả C từ ESP32.
@@ -241,6 +268,7 @@ void loop() {
                       (line[0] == 'D' && line[1] == ' ' &&
                        (line[2] == '0' || line[2] == '1') && line[3] == '\0'))) {
         Serial.println(F("[UART] ESP32 da san sang."));
+        setAiLedState(AI_LED_READY);
         currentState = STATE_IDLE;
         stateStartTime = millis();
         break;
@@ -299,8 +327,7 @@ void loop() {
         }
         else {
           Serial.println(F("[!] ESP khong ACK trigger; quay lai bat tay."));
-          digitalWrite(LED_AI, LOW);
-          startBlink(LED_AI);
+          setAiLedState(AI_LED_ERROR);
           pendingTrigger = triggerSensorOccupied;
           sendReadyProbe();
           stateStartTime = millis();
@@ -321,8 +348,7 @@ void loop() {
       }
       else if (!hasLine && millis() - stateStartTime >= LABEL_TIMEOUT_MS) {
         Serial.println(F("[!] Timeout chup/phan loai; quay lai bat tay."));
-        digitalWrite(LED_AI, LOW);
-        startBlink(LED_AI);
+        setAiLedState(AI_LED_ERROR);
         pendingTrigger = triggerSensorOccupied;
         sendReadyProbe();
         stateStartTime = millis();
@@ -339,16 +365,24 @@ void loop() {
 
       if (activeServo != NULL && millis() - servoOpenedAt >= OPEN_DURATION_MS) {
         activeServo->write(ANGLE_CLOSE);
-        if (activeServoLedPin != -1) {
-          digitalWrite(activeServoLedPin, LOW);
-        }
         activeServo = NULL;
-        activeServoLedPin = -1;
+        servoClosedAt = millis();
+        postCloseMeasurementPending = true;
         Serial.println(F("-> Da dong nap thung rac."));
+        Serial.println(F("-> Cho cam bien on dinh 1 giay truoc lan do thu 2..."));
       }
 
-      // Chỉ gửi F sau khi servo đã đóng hoặc chu kỳ cảnh báo đã kết thúc.
+      // Nếu nắp đã mở, chỉ đo lần 2 sau khi đóng và chờ ổn định đủ 1 giây.
       if (activeServo == NULL && activeBlinkPin == -1) {
+        if (postCloseMeasurementPending) {
+          if (millis() - servoClosedAt < POST_CLOSE_SETTLE_MS) {
+            break;
+          }
+          Serial.println(F("[BIN] Lan 2: do lai sau khi nap da dong 1 giay..."));
+          measureAllBins();
+          lastFillCheckTime = millis();
+          postCloseMeasurementPending = false;
+        }
         finishNanoProcessing();
       }
       break;
@@ -372,19 +406,9 @@ void loop() {
         Serial.println(line);
       }
       else if (millis() - stateStartTime >= UART_ACK_TIMEOUT_MS) {
-        if (uartAttempts < MAX_UART_ATTEMPTS) {
-          ++uartAttempts;
-          Serial.print(F("[UART] Khong co ACK F, gui lai lan "));
-          Serial.println(uartAttempts);
-          resendFillDataToESP();
-          stateStartTime = millis();
-        }
-        else {
-          // Có thể ACK bị mất nhưng ESP đã nhận F và đang upload. Tiếp tục chờ D.
-          Serial.println(F("[UART] Mat ACK F; tiep tuc cho ket qua cloud."));
-          stateStartTime = millis();
-          currentState = STATE_WAIT_CLOUD;
-        }
+        // F chi duoc gui mot lan. Khong lap POST do mat ACK.
+        Serial.println(F("[UART] Khong co ACK F; bo qua cloud, local van hoat dong."));
+        enterCooldown();
       }
       break;
     }
@@ -403,7 +427,7 @@ void loop() {
       }
       else if (!hasLine && millis() - stateStartTime >= CLOUD_TIMEOUT_MS) {
         Serial.println(F("[!] Timeout cloud; bat tay lai voi ESP."));
-        startBlink(LED_AI);
+        setAiLedState(AI_LED_ERROR);
         sendReadyProbe();
         stateStartTime = millis();
         currentState = STATE_WAIT_ESP_READY;
@@ -417,6 +441,11 @@ void loop() {
         Serial.println(line);
       }
       if (millis() - stateStartTime >= COOLDOWN_MS) {
+        // Chỉ báo READY sau khi thời gian chờ giữa hai lượt đã kết thúc.
+        // Nếu lượt trước bị lỗi, giữ nhịp ERROR cho đến khi có trigger mới.
+        if (lastClassificationSucceeded) {
+          setAiLedState(AI_LED_READY);
+        }
         currentState = STATE_IDLE;
         Serial.println(F("--- San sang cho luot tiep theo ---\n"));
       }
@@ -433,6 +462,30 @@ void setAllLEDs(bool state) {
   digitalWrite(LED_AI, state ? HIGH : LOW);
 }
 
+// ==== TRANG THAI LED AI: LOADING / READY / ERROR ====
+void setAiLedState(AiLedState state) {
+  aiLedState = state;
+  if (state == AI_LED_READY) {
+    digitalWrite(LED_AI, HIGH);
+  } else if (state == AI_LED_ERROR) {
+    digitalWrite(LED_AI, HIGH);
+  } else {
+    digitalWrite(LED_AI, LOW);
+  }
+}
+
+void updateAiLed() {
+  if (aiLedState == AI_LED_READY) {
+    digitalWrite(LED_AI, HIGH);
+    return;
+  }
+
+  const unsigned long interval = aiLedState == AI_LED_LOADING
+                                     ? AI_LOADING_TOGGLE_MS
+                                     : AI_ERROR_TOGGLE_MS;
+  blinkSingleLED(LED_AI, interval);
+}
+
 // ==== NHẤP NHÁY 1 LED CHỈ ĐỊNH KHÔNG TREO MẠCH ====
 void blinkSingleLED(int pin, int interval) {
   unsigned long currentMillis = millis();
@@ -442,21 +495,29 @@ void blinkSingleLED(int pin, int interval) {
 
 void startBlink(int pin) {
   if (activeBlinkPin != -1 && activeBlinkPin != pin) {
-    digitalWrite(activeBlinkPin, LOW);
+    // Khôi phục trạng thái đầy/rỗng của LED cũ trước khi chuyển sang LED mới.
+    activeBlinkPin = -1;
+    updateBinStatusLeds();
   }
   activeBlinkPin = pin;
   blinkStartTime = millis();
+  digitalWrite(activeBlinkPin, HIGH);
 }
 
 void updateBlink() {
   if (activeBlinkPin == -1) return;
 
-  if (millis() - blinkStartTime >= ERROR_BLINK_MS) {
-    digitalWrite(activeBlinkPin, LOW);
+  if (millis() - blinkStartTime >= CLASSIFICATION_BLINK_MS) {
+    const int finishedBlinkPin = activeBlinkPin;
     activeBlinkPin = -1;
+    digitalWrite(finishedBlinkPin, LOW);
+    // Trả LED về trạng thái đã đo trước đó: đầy = sáng liên tục, rỗng = tắt.
+    updateBinStatusLeds();
     return;
   }
-  blinkSingleLED(activeBlinkPin, 200);
+  const bool blinkOn = (((millis() - blinkStartTime) /
+                         CLASSIFICATION_LED_TOGGLE_MS) % 2UL) == 0UL;
+  digitalWrite(activeBlinkPin, blinkOn ? HIGH : LOW);
 }
 
 // ==== HÀM ĐO KHOẢNG CÁCH SIÊU ÂM ====
@@ -659,6 +720,7 @@ void startPendingTrigger() {
   const bool isManualTrigger = manualTriggerPending;
   pendingTrigger = false;
   manualTriggerPending = false;
+
   Serial.println(isManualTrigger
                      ? F("\n[MANUAL TRIGGER] Yeu cau ESP chup...")
                      : F("\n[AUTO TRIGGER] Cam bien phat hien rac; yeu cau ESP chup..."));
@@ -669,11 +731,8 @@ void startPendingTrigger() {
   currentState = STATE_WAIT_TRIGGER_ACK;
 }
 
-// ==== HÀM TÍNH PHẦN TRĂM ĐỘ ĐẦY THÙNG RÁC (%) ====
-int calculateFillPercentage(int trigPin, int echoPin) {
-  long distance = readUltrasonicDistance(trigPin, echoPin);
-  
-  if (distance <= 0) return -1; // Không coi cảm biến lỗi là ngăn trống
+// ==== TÍNH PHẦN TRĂM ĐỘ ĐẦY TỪ MỘT KẾT QUẢ ĐO ====
+int calculateFillPercentageFromDistance(long distance) {
   if (distance >= BIN_HEIGHT_CM) return 0; // Trống hoàn toàn
   
   float fillPercent = ((BIN_HEIGHT_CM - (float)distance) / BIN_HEIGHT_CM) * 100.0;
@@ -684,16 +743,57 @@ int calculateFillPercentage(int trigPin, int echoPin) {
   return (int)fillPercent;
 }
 
+// ==== ĐO MỘT NGĂN VÀ SUY RA TRẠNG THÁI ĐẦY ====
+int measureBin(int trigPin, int echoPin, bool *isFull,
+               const __FlashStringHelper* name) {
+  const long distance = readUltrasonicDistance(trigPin, echoPin);
+  if (distance <= 0) {
+    *isFull = true;
+    Serial.print(F("[BIN] "));
+    Serial.print(name);
+    Serial.println(F(": TIMEOUT -> FULL, LED=ON"));
+    return 100;
+  }
+
+  float filledHeight = BIN_HEIGHT_CM - (float)distance;
+  if (filledHeight < 0.0) filledHeight = 0.0;
+  if (filledHeight > BIN_HEIGHT_CM) filledHeight = BIN_HEIGHT_CM;
+  *isFull = filledHeight > FULL_THRESHOLD_HEIGHT_CM;
+
+  const int fillPercent = calculateFillPercentageFromDistance(distance);
+  Serial.print(F("[BIN] "));
+  Serial.print(name);
+  Serial.print(F(": distance="));
+  Serial.print(distance);
+  Serial.print(F("cm height="));
+  Serial.print(filledHeight, 1);
+  Serial.print(F("cm fill="));
+  Serial.print(fillPercent);
+  Serial.print(F("% state="));
+  Serial.println(*isFull ? F("FULL LED=ON") : F("AVAILABLE LED=LOW"));
+  return fillPercent;
+}
+
 // ==== ĐO ĐỘ ĐẦY CẢ 3 NGĂN ====
 void measureAllBins() {
-  const int measuredNhua = calculateFillPercentage(TRIG_NHUA, ECHO_NHUA);
-  const int measuredGiay = calculateFillPercentage(TRIG_GIAY, ECHO_GIAY);
-  const int measuredHuuCo = calculateFillPercentage(TRIG_HUUCO, ECHO_HUUCO);
+  fillNhua = measureBin(TRIG_NHUA, ECHO_NHUA, &binFullNhua, F("NHUA"));
+  fillGiay = measureBin(TRIG_GIAY, ECHO_GIAY, &binFullGiay, F("GIAY"));
+  fillHuuCo = measureBin(TRIG_HUUCO, ECHO_HUUCO, &binFullHuuCo, F("HUU CO"));
+  updateBinStatusLeds();
+}
 
-  // Giữ giá trị hợp lệ gần nhất nếu một cảm biến tạm thời timeout.
-  if (measuredNhua >= 0) fillNhua = measuredNhua;
-  if (measuredGiay >= 0) fillGiay = measuredGiay;
-  if (measuredHuuCo >= 0) fillHuuCo = measuredHuuCo;
+// Trạng thái nền của LED ngăn: đầy/timeout = sáng liên tục, còn nhận rác = tắt.
+// Khi đang báo kết quả phân loại, updateBlink() tạm thời toàn quyền điều khiển LED đó.
+void updateBinStatusLeds() {
+  if (activeBlinkPin != LED_NHUA) {
+    digitalWrite(LED_NHUA, binFullNhua ? HIGH : LOW);
+  }
+  if (activeBlinkPin != LED_GIAY) {
+    digitalWrite(LED_GIAY, binFullGiay ? HIGH : LOW);
+  }
+  if (activeBlinkPin != LED_HUUCO) {
+    digitalWrite(LED_HUUCO, binFullHuuCo ? HIGH : LOW);
+  }
 }
 
 // ==== GỬI CHUỖI F DUNG TÍCH SANG ESP32-CAM ====
@@ -723,7 +823,8 @@ void sendReadyProbe() {
 
 // ==== PHÁT TÍN HIỆU KÍCH HOẠT CHỤP CẢNH (T 1) ====
 void sendTrigger() {
-  digitalWrite(LED_AI, HIGH); // Bật sáng LED Hộc AI trợ sáng chụp ảnh
+  // LOADING bat/tat moi 1 giay trong luc ESP chup, inference va dong bo cloud.
+  setAiLedState(AI_LED_LOADING);
 
 #if defined(TEST_MODE)
   Serial.println(F("[UART] TEST: T 1"));
@@ -804,13 +905,21 @@ bool parseClassification(const char *line, int *code) {
 void processClassification(int code) {
   Serial.print(F("[UART] Nhan ket qua phan loai C "));
   Serial.println(code);
-  digitalWrite(LED_AI, LOW);
+  lastClassificationSucceeded = code >= 1 && code <= 3;
+
+  // Lần đo thứ nhất: ESP đã trả kết quả nhưng chưa quyết định mở nắp.
+  Serial.println(F("[BIN] Lan 1: do 3 ngan truoc khi mo nap..."));
+  measureAllBins();
+  lastFillCheckTime = millis();
+  postCloseMeasurementPending = false;
 
   if (code == 0) {
     Serial.println(F("[!] AI khong nhan dien; khong mo ngan."));
-    startBlink(LED_AI);
+    setAiLedState(AI_LED_ERROR);
   }
   else {
+    // Van giu LOADING cho den khi ESP ket thuc mot lan dong bo cloud.
+    setAiLedState(AI_LED_LOADING);
     handleLabel(code);
   }
 
@@ -823,82 +932,62 @@ void processClassification(int code) {
 // ==== XỬ LÝ KIỂM TRA ĐẦY & MỞ NẮP CHO TỪNG LOẠI RÁC ====
 void handleLabel(int code) {
   if (code == 1) {
-    // Ngăn Nhựa
-    int currentFill = calculateFillPercentage(TRIG_NHUA, ECHO_NHUA);
-    Serial.print(F("-> Ngan Nhua day: ")); Serial.print(currentFill); Serial.println(F("%"));
+    // Dùng snapshot đã đo ngay lúc trigger AI.
+    Serial.print(F("-> Ngan Nhua: ")); Serial.print(fillNhua); Serial.println(F("%"));
+    startBlink(LED_NHUA);
 
-    if (currentFill < 0) {
-      Serial.println(F("[!] Loi cam bien NHUA -> khong mo nap."));
-      startBlink(LED_NHUA);
-    } else if (currentFill >= FULL_THRESHOLD_PERCENT) {
-      Serial.println(F("[!] Ngan NHUA da day."));
-      fillNhua = currentFill;
-      startBlink(LED_NHUA);
+    if (binFullNhua) {
+      Serial.println(F("[!] Ngan NHUA day/timeout -> khong mo nap; LED van nhap nhay bao phan loai."));
     } else {
-      fillNhua = currentFill;
-      startOpenBin(servoNhua, LED_NHUA, F("NGAN NHUA"));
+      startOpenBin(servoNhua, F("NGAN NHUA"));
     }
   } 
   else if (code == 2) {
-    // Ngăn Giấy
-    int currentFill = calculateFillPercentage(TRIG_GIAY, ECHO_GIAY);
-    Serial.print(F("-> Ngan Giay day: ")); Serial.print(currentFill); Serial.println(F("%"));
+    Serial.print(F("-> Ngan Giay: ")); Serial.print(fillGiay); Serial.println(F("%"));
+    startBlink(LED_GIAY);
 
-    if (currentFill < 0) {
-      Serial.println(F("[!] Loi cam bien GIAY -> khong mo nap."));
-      startBlink(LED_GIAY);
-    } else if (currentFill >= FULL_THRESHOLD_PERCENT) {
-      Serial.println(F("[!] Ngan GIAY da day."));
-      fillGiay = currentFill;
-      startBlink(LED_GIAY);
+    if (binFullGiay) {
+      Serial.println(F("[!] Ngan GIAY day/timeout -> khong mo nap; LED van nhap nhay bao phan loai."));
     } else {
-      fillGiay = currentFill;
-      startOpenBin(servoGiay, LED_GIAY, F("NGAN GIAY"));
+      startOpenBin(servoGiay, F("NGAN GIAY"));
     }
   } 
   else if (code == 3) {
-    // Ngăn Hữu cơ
-    int currentFill = calculateFillPercentage(TRIG_HUUCO, ECHO_HUUCO);
-    Serial.print(F("-> Ngan Huu co day: ")); Serial.print(currentFill); Serial.println(F("%"));
+    Serial.print(F("-> Ngan Huu co: ")); Serial.print(fillHuuCo); Serial.println(F("%"));
+    startBlink(LED_HUUCO);
 
-    if (currentFill < 0) {
-      Serial.println(F("[!] Loi cam bien HUU CO -> khong mo nap."));
-      startBlink(LED_HUUCO);
-    } else if (currentFill >= FULL_THRESHOLD_PERCENT) {
-      Serial.println(F("[!] Ngan HUU CO da day."));
-      fillHuuCo = currentFill;
-      startBlink(LED_HUUCO);
+    if (binFullHuuCo) {
+      Serial.println(F("[!] Ngan HUU CO day/timeout -> khong mo nap; LED van nhap nhay bao phan loai."));
     } else {
-      fillHuuCo = currentFill;
-      startOpenBin(servoHuuCo, LED_HUUCO, F("NGAN HUU CO"));
+      startOpenBin(servoHuuCo, F("NGAN HUU CO"));
     }
   }
 }
 
 // ==== BẮT ĐẦU MỞ SERVO KHÔNG BLOCKING ====
-void startOpenBin(Servo &s, int binLedPin, const __FlashStringHelper* name) {
+void startOpenBin(Servo &s, const __FlashStringHelper* name) {
   Serial.print(F("-> Dang mo: "));
   Serial.println(name);
 
   activeServo = &s;
-  activeServoLedPin = binLedPin;
+  postCloseMeasurementPending = false;
   servoOpenedAt = millis();
-  digitalWrite(binLedPin, HIGH);
   s.write(ANGLE_OPEN);
 }
 
 void finishNanoProcessing() {
-  // Đo sau khi nắp đã đóng/cảnh báo đã xong để Firestore nhận trạng thái cuối
-  // cùng của chính transaction này.
-  Serial.println(F("-> Nano xu ly xong; cap nhat dung tich 3 ngan..."));
-  measureAllBins();
+  // Nếu nắp đã mở, measureAllBins() vừa chạy sau khi đóng và chờ 1 giây.
+  // Nếu không mở nắp, dùng lần đo ngay sau kết quả AI.
+  Serial.println(F("-> Nano xu ly xong; gui dung tich 3 ngan..."));
   sendFillDataToESP();
-  uartAttempts = 1;
   stateStartTime = millis();
   currentState = STATE_WAIT_FILL_ACK;
 }
 
 void enterCooldown() {
+  // Trong cooldown hệ thống chưa nhận lượt mới: nhấp nháy chậm như LOADING.
+  // Lượt phân loại lỗi tiếp tục dùng nhịp ERROR nhanh.
+  setAiLedState(lastClassificationSucceeded ? AI_LED_LOADING : AI_LED_ERROR);
   stateStartTime = millis();
   currentState = STATE_COOLDOWN;
 }

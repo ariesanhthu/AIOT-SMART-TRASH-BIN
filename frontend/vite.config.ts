@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
+  const backendUrl = new URL(env.BACKEND_URL || "http://localhost:8080");
 
   const cameraUrl = new URL(
     env.ESP32_CAMERA_URL || "http://172.20.10.2",
@@ -25,6 +26,13 @@ export default defineConfig(({ mode }) => {
       port: 5173,
 
       proxy: {
+        // Browser gọi cùng origin (/api), Vite chuyển tiếp tới Spring Boot.
+        // Cách này hoạt động cả khi mở frontend bằng IP LAN từ máy/điện thoại khác.
+        "/api": {
+          target: backendUrl.origin,
+          changeOrigin: true,
+        },
+
         "/capture": {
           target: cameraUrl.origin,
           changeOrigin: true,

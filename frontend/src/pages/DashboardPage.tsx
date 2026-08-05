@@ -1,12 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import { useRanking } from '../hooks/useRanking'; // giữ nguyên — tích điểm thưởng nằm ngoài phạm vi backend hiện tại
-import type { Bin, AlertRow } from '../types/api';
-import { WASTE_TYPES } from '../constants/wasteTypes';
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
+import { Chart as ChartJS, ArcElement, Tooltip } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
+import { useRanking } from '../hooks/useRanking';
 import { useTodaySummary } from '../hooks/useTodaySummary';
+import type { AlertRow, Bin } from '../types/api';
+import { WASTE_TYPE_KEYS, WASTE_TYPES, type WasteTypeKey } from '../constants/wasteTypes';
 
-ChartJS.register(ArcElement, Tooltip, Legend);
+ChartJS.register(ArcElement, Tooltip);
 
 interface Props {
   bins: Bin[];
@@ -14,207 +14,350 @@ interface Props {
   setPage: (page: string) => void;
 }
 
-export const DashboardPage: React.FC<Props> = ({ bins, alerts, setPage }) => {
-  const fullBins = useMemo(() => bins.filter(b => Object.values(b.compartments).some(v => (v ?? 0) >= 80)).length, [bins]);
-  const onlineBins = useMemo(() => bins.filter(b => b.online).length, [bins]);
-  const dashBins = bins.slice(0, 4);
-  const pendingAlerts = useMemo(() => alerts.filter(a => a.status === 'pending').slice(0, 3), [alerts]);
-  const [days, setDays] = useState(1);
-  const { summary } = useTodaySummary(days);
-  const { summary: todaySummary } = useTodaySummary(1);
-  const ranking = useRanking(bins, 7); 
+const PERIOD_OPTIONS = [
+  { days: 1, label: 'Hôm nay', chartTitle: 'Hôm nay' },
+  { days: 7, label: '7 ngày', chartTitle: '7 ngày qua' },
+  { days: 30, label: '30 ngày', chartTitle: '30 ngày qua' },
+] as const;
 
-  const chartData = {
-    labels: ['Hữu cơ', 'Giấy', 'Nhựa'],
-    datasets: [{
-      data: [todaySummary.organicCount, todaySummary.paperCount, todaySummary.plasticCount],
-      backgroundColor: ['#22c55e', '#f59e0b', '#3b82f6'],
-      borderWidth: 0,
-      hoverOffset: 6,
-    }]
-  };
+const NUMBER_FORMATTER = new Intl.NumberFormat('vi-VN');
+
+function isBinFull(bin: Bin): boolean {
+  return WASTE_TYPE_KEYS.some((key) => {
+    const fill = bin.compartments[key] ?? 0;
+    const threshold = bin.thresholds[key] ?? 80;
+    return fill >= threshold;
+  });
+}
+
+function wasteLabel(type: WasteTypeKey): string {
+  return WASTE_TYPES[type].label;
+}
+
+export const DashboardPage: React.FC<Props> = ({ bins, alerts, setPage }) => {
+  const [days, setDays] = useState(1);
+  const { summary, loading: summaryLoading } = useTodaySummary(days);
+  const ranking = useRanking(bins, days);
+
+  const onlineBins = useMemo(() => bins.filter((bin) => bin.online).length, [bins]);
+  const fullBins = useMemo(() => bins.filter(isBinFull).length, [bins]);
+  const pendingAlerts = useMemo(
+    () => alerts.filter((alert) => alert.status === 'pending').slice(0, 4),
+    [alerts],
+  );
+  const period = PERIOD_OPTIONS.find((option) => option.days === days) ?? PERIOD_OPTIONS[0];
+
+  const chartValues = useMemo(
+    () => [summary.organicCount, summary.paperCount, summary.plasticCount],
+    [summary.organicCount, summary.paperCount, summary.plasticCount],
+  );
+  const chartTotal = chartValues.reduce((total, count) => total + count, 0);
+  const chartData = useMemo(
+    () => ({
+      labels: WASTE_TYPE_KEYS.map(wasteLabel),
+      datasets: [
+        {
+          data: chartValues,
+          backgroundColor: WASTE_TYPE_KEYS.map((key) => WASTE_TYPES[key].color),
+          borderColor: '#ffffff',
+          borderWidth: 4,
+          hoverBorderWidth: 4,
+          hoverOffset: 7,
+          spacing: 2,
+        },
+      ],
+    }),
+    [chartValues],
+  );
 
   return (
-    <section className="page-section">
-      <div className="page-header">
+    <section className="page-section dashboard-page">
+      <header className="dashboard-hero">
         <div>
+          <p className="dashboard-eyebrow">Trung tâm vận hành</p>
           <h1>Tổng quan hệ thống</h1>
-          <p className="subtitle body-md">Theo dõi trạng thái thùng rác thông minh theo thời gian thực</p>
+          <p className="dashboard-subtitle">
+            Theo dõi thiết bị, sức chứa và hoạt động phân loại trên một màn hình.
+          </p>
         </div>
-        <div className="page-header-actions">
-          <div className="filter-group">
-            <button className={`time-btn ${days === 1 ? 'active-time' : ''}`} onClick={() => setDays(1)}>Hôm nay</button>
-            <button className={`time-btn ${days === 7 ? 'active-time' : ''}`} onClick={() => setDays(7)}>7 ngày</button>
-            <button className={`time-btn ${days === 30 ? 'active-time' : ''}`} onClick={() => setDays(30)}>30 ngày</button>
+
+        <div className="dashboard-period" aria-label="Khoảng thời gian thống kê">
+          {PERIOD_OPTIONS.map((option) => (
+            <button
+              key={option.days}
+              type="button"
+              className={`dashboard-period__button ${days === option.days ? 'is-active' : ''}`}
+              aria-pressed={days === option.days}
+              onClick={() => setDays(option.days)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      <div className="dashboard-kpi-grid" aria-live="polite" aria-busy={summaryLoading}>
+        <article className="dashboard-kpi dashboard-kpi--primary">
+          <div className="dashboard-kpi__icon" aria-hidden="true">
+            <i className="fa-solid fa-trash-can" />
           </div>
-        </div>
+          <div>
+            <p className="dashboard-kpi__label">Tổng lượt bỏ rác</p>
+            <p className="dashboard-kpi__value">
+              {summaryLoading ? '—' : NUMBER_FORMATTER.format(summary.totalCount)}
+            </p>
+            <p className="dashboard-kpi__meta">{period.chartTitle}</p>
+          </div>
+        </article>
+
+        <article className="dashboard-kpi dashboard-kpi--blue">
+          <div className="dashboard-kpi__icon" aria-hidden="true">
+            <i className="fa-solid fa-recycle" />
+          </div>
+          <div>
+            <p className="dashboard-kpi__label">Rác tái chế</p>
+            <p className="dashboard-kpi__value">
+              {summaryLoading ? '—' : NUMBER_FORMATTER.format(summary.recyclableCount)}
+            </p>
+            <p className="dashboard-kpi__meta">Giấy và nhựa</p>
+          </div>
+        </article>
+
+        <article className="dashboard-kpi dashboard-kpi--red">
+          <div className="dashboard-kpi__icon" aria-hidden="true">
+            <i className="fa-solid fa-triangle-exclamation" />
+          </div>
+          <div>
+            <p className="dashboard-kpi__label">Cần xử lý</p>
+            <p className="dashboard-kpi__value">{NUMBER_FORMATTER.format(fullBins)}</p>
+            <p className="dashboard-kpi__meta">Ngăn đạt ngưỡng đầy</p>
+          </div>
+        </article>
+
+        <article className="dashboard-kpi dashboard-kpi--green">
+          <div className="dashboard-kpi__icon" aria-hidden="true">
+            <i className="fa-solid fa-wifi" />
+          </div>
+          <div>
+            <p className="dashboard-kpi__label">Thiết bị online</p>
+            <p className="dashboard-kpi__value">
+              {onlineBins}<span className="dashboard-kpi__denominator">/{bins.length}</span>
+            </p>
+            <p className="dashboard-kpi__meta">
+              {bins.length === 0 ? 'Chưa có thiết bị' : `${bins.length - onlineBins} thiết bị offline`}
+            </p>
+          </div>
+        </article>
       </div>
 
-      <div className="grid-4 mb-6">
-        <div className="card card-padding stat-card">
-          <div className="flex items-start justify-between">
+      <div className="dashboard-main-grid">
+        <section className="dashboard-panel dashboard-devices-panel" aria-labelledby="devices-title">
+          <div className="dashboard-panel__header">
             <div>
-              <p className="label-caps" style={{ color: 'var(--outline)' }}>Tổng lượt bỏ rác</p>
-              <p className="kpi-number mt-1" style={{ color: 'var(--on-surface)' }}>{summary.totalCount}</p>
+              <p className="dashboard-panel__eyebrow">Giám sát trực tiếp</p>
+              <h2 id="devices-title">Trạng thái thiết bị</h2>
             </div>
-            <div className="stat-icon-wrap" style={{ background: 'var(--surface-container)' }}>
-              <i className="fa-solid fa-trash-can" style={{ color: 'var(--outline)' }}></i>
-            </div>
+            <button type="button" className="dashboard-text-button" onClick={() => setPage('bindetail')}>
+              Xem tất cả <i className="fa-solid fa-arrow-right" aria-hidden="true" />
+            </button>
           </div>
-        </div>
 
-        <div className="card card-padding stat-card">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="label-caps" style={{ color: 'var(--outline)' }}>Rác tái chế</p>
-              <p className="kpi-number mt-1" style={{ color: 'var(--on-surface)' }}>{summary.recyclableCount}</p>
+          {bins.length === 0 ? (
+            <div className="dashboard-empty-state">
+              <i className="fa-solid fa-trash-can" aria-hidden="true" />
+              <p>Chưa có thiết bị trong Firestore.</p>
             </div>
-            <div className="stat-icon-wrap" style={{ background: '#dbeafe' }}>
-              <i className="fa-solid fa-recycle" style={{ color: 'var(--color-plastic)' }}></i>
-            </div>
-          </div>
-        </div>
-
-        <div className="card card-padding stat-card">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="label-caps" style={{ color: 'var(--outline)' }}>Cần xử lý</p>
-              <p className="kpi-number mt-1" style={{ color: 'var(--error)' }}>{fullBins}</p>
-            </div>
-            <div className="stat-icon-wrap" style={{ background: 'var(--error-container)' }}>
-              <i className="fa-solid fa-triangle-exclamation" style={{ color: 'var(--error)' }}></i>
-            </div>
-          </div>
-        </div>
-
-        <div className="card card-padding stat-card">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="label-caps" style={{ color: 'var(--outline)' }}>Thiết bị online</p>
-              <p className="kpi-number mt-1" style={{ color: 'var(--on-surface)' }}>
-                <span style={{ color: 'var(--primary-container)' }}>{onlineBins}</span>
-                <span style={{ fontSize: '20px', color: 'var(--outline)' }}>/{bins.length}</span>
-              </p>
-            </div>
-            <div className="stat-icon-wrap" style={{ background: '#dcfce7' }}>
-              <i className="fa-solid fa-wifi" style={{ color: 'var(--primary-container)' }}></i>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 340px', gap: 'var(--container-gap)', marginBottom: 'var(--container-gap)' }}>
-        <div style={{ gridColumn: 'span 2' }}>
-          <div className="section-header">
-            <h2 className="section-title">Trạng thái thiết bị</h2>
-            <a href="#" onClick={(e) => { e.preventDefault(); setPage('bindetail'); }} style={{ fontSize: '13px', color: 'var(--primary-container)', textDecoration: 'none', fontWeight: 500 }}>
-              Xem tất cả <i className="fa-solid fa-arrow-right" style={{ fontSize: '10px' }}></i>
-            </a>
-          </div>
-          <div className="grid-2">
-            {dashBins.map(bin => (
-              <div key={bin.id} onClick={() => setPage('bindetail')} className="card card-padding card-interactive" style={{ position: 'relative' }}>
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <p className="title-sm" style={{ color: 'var(--on-surface)' }}>{bin.name}</p>
-                    <p className="body-md" style={{ color: 'var(--outline)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                      <i className="fa-solid fa-location-dot" style={{ fontSize: '10px' }}></i> {bin.location}
-                    </p>
-                  </div>
-                  <span className={`badge badge-pill ${bin.online ? 'badge-online' : 'badge-offline'}`} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: bin.online ? '#22c55e' : 'var(--error)', display: 'inline-block' }}></span>
-                    {bin.online ? 'Online' : 'Offline'}
+          ) : (
+            <div className="dashboard-device-grid">
+              {bins.slice(0, 4).map((bin) => (
+                <button
+                  key={bin.id}
+                  type="button"
+                  className="dashboard-device-card"
+                  onClick={() => setPage('bindetail')}
+                >
+                  <span className="dashboard-device-card__header">
+                    <span className="dashboard-device-card__identity">
+                      <span className="dashboard-device-card__icon" aria-hidden="true">
+                        <i className="fa-solid fa-trash-can" />
+                      </span>
+                      <span className="dashboard-device-card__name-wrap">
+                        <strong>{bin.name}</strong>
+                        <span><i className="fa-solid fa-location-dot" aria-hidden="true" /> {bin.location}</span>
+                      </span>
+                    </span>
+                    <span className={`dashboard-status ${bin.online ? 'is-online' : 'is-offline'}`}>
+                      <span aria-hidden="true" />
+                      {bin.online ? 'Online' : 'Offline'}
+                    </span>
                   </span>
-                </div>
-                {bin.online ? (
-                  <div className="space-y-3" style={{ marginTop: '12px' }}>
-                    {Object.entries(bin.compartments).map(([k, v]) => {
-                      const wt = WASTE_TYPES[k as keyof typeof WASTE_TYPES];
-                      const isOver = (v ?? 0) >= 80;
+
+                  {!bin.online ? (
+                    <span className="dashboard-device-card__notice">
+                      Dữ liệu Firestore gần nhất
+                    </span>
+                  ) : null}
+
+                  <span className="dashboard-compartments">
+                    {WASTE_TYPE_KEYS.map((key) => {
+                      const value = bin.compartments[key] ?? 0;
+                      const threshold = bin.thresholds[key] ?? 80;
+                      const isOver = value >= threshold;
                       return (
-                        <div key={k}>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="body-md" style={{ fontSize: '12px', color: 'var(--on-surface)' }}>{wt.label}</span>
-                            <span className="body-md" style={{ fontSize: '12px', fontWeight: 600, color: isOver ? 'var(--error)' : 'var(--on-surface)' }}>{v}%</span>
-                          </div>
-                          <div className="progress-track">
-                            <div className="progress-fill" style={{ width: `${v}%`, background: isOver ? '#ef4444' : wt.color }}></div>
-                          </div>
-                        </div>
+                        <span className="dashboard-compartment" key={key}>
+                          <span className="dashboard-compartment__meta">
+                            <span>{wasteLabel(key)}</span>
+                            <strong className={isOver ? 'is-over' : ''}>{value}%</strong>
+                          </span>
+                          <span
+                            className="dashboard-compartment__track"
+                            role="progressbar"
+                            aria-label={`${wasteLabel(key)} ${value}%`}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-valuenow={value}
+                          >
+                            <span
+                              className="dashboard-compartment__fill"
+                              style={{ width: `${Math.min(100, Math.max(0, value))}%`, background: isOver ? '#dc2626' : WASTE_TYPES[key].color }}
+                            />
+                          </span>
+                        </span>
                       );
                     })}
-                  </div>
-                ) : (
-                  <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '16px 0' }}>
-                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--surface-container)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <i className="fa-solid fa-wifi" style={{ color: 'var(--outline-variant)', fontSize: '16px', opacity: 0.5 }}></i>
-                    </div>
-                    <p className="body-md" style={{ color: 'var(--outline-variant)' }}>Mất kết nối</p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--container-gap)' }}>
-          <div>
-            <div className="section-header">
-              <h2 className="section-title">Cảnh báo gần đây</h2>
+        <section className="dashboard-panel dashboard-chart-panel" aria-labelledby="chart-title">
+          <div className="dashboard-panel__header">
+            <div>
+              <p className="dashboard-panel__eyebrow">Cơ cấu phân loại</p>
+              <h2 id="chart-title">{period.chartTitle}</h2>
             </div>
-            <div className="card">
-              <div className="space-y-0">
-                {pendingAlerts.length === 0 ? (
-                  <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--outline)' }}>
-                    <p className="body-md">Không có cảnh báo</p>
-                  </div>
-                ) : (
-                  pendingAlerts.map(a => (
-                    <div key={a.id} style={{ padding: '16px 20px', borderBottom: '1px solid #E3E8E1', display: 'flex', gap: '12px' }}>
-                      <div style={{ width: '36px', height: '36px', borderRadius: 'var(--radius)', background: 'var(--error-container)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <i className="fa-solid fa-triangle-exclamation" style={{ color: 'var(--error)', fontSize: '14px' }}></i>
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p className="body-md" style={{ fontWeight: 600, color: 'var(--on-surface)', fontSize: '13px' }}>
-                          Khẩn cấp Bin {a.bin} — {a.compartment}
-                        </p>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
+            {summaryLoading ? <span className="dashboard-loading">Đang cập nhật…</span> : null}
           </div>
-          <div>
-            <div className="section-header">
-              <h2 className="section-title">Bảng điểm thưởng</h2>
+
+          {chartTotal === 0 && !summaryLoading ? (
+            <div className="dashboard-empty-state dashboard-empty-state--chart">
+              <i className="fa-solid fa-chart-pie" aria-hidden="true" />
+              <strong>Chưa có lượt phân loại</strong>
+              <p>Biểu đồ sẽ cập nhật khi backend nhận dữ liệu trong {period.chartTitle.toLowerCase()}.</p>
             </div>
-            <div className="card card-padding">
-              <div className="space-y-4">
-                {ranking.map((r, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <span style={{ fontSize: '18px', minWidth: '24px', textAlign: 'center' }}>{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : ''}</span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div className="flex items-center justify-between" style={{ marginBottom: '6px' }}>
-                        <span className="body-md" style={{ fontWeight: 600, color: 'var(--on-surface)' }}>{r.name}</span>
-                        <span className="body-md" style={{ fontWeight: 700, fontSize: '13px' }}>{r.points} đ</span>
-                      </div>
-                    </div>
+          ) : (
+            <>
+              <div className="dashboard-donut">
+                <Doughnut
+                  key={days}
+                  data={chartData}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '72%',
+                    animation: { duration: 350 },
+                    plugins: {
+                      tooltip: {
+                        callbacks: {
+                          label: (context) => ` ${context.label}: ${NUMBER_FORMATTER.format(Number(context.raw))} lượt`,
+                        },
+                      },
+                    },
+                  }}
+                />
+                <div className="dashboard-donut__center" aria-hidden="true">
+                  <strong>{NUMBER_FORMATTER.format(chartTotal)}</strong>
+                  <span>lượt phân loại</span>
+                </div>
+              </div>
+
+              <div className="dashboard-chart-legend">
+                {WASTE_TYPE_KEYS.map((key, index) => (
+                  <div key={key} className="dashboard-chart-legend__item">
+                    <span className="dashboard-chart-legend__dot" style={{ background: WASTE_TYPES[key].color }} />
+                    <span>{wasteLabel(key)}</span>
+                    <strong>{NUMBER_FORMATTER.format(chartValues[index])}</strong>
                   </div>
                 ))}
               </div>
-            </div>
-          </div>
-        </div>
+            </>
+          )}
+        </section>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: 'var(--container-gap)' }}>
-        <div className="card card-padding">
-          <h2 className="section-title mb-4">Phân loại rác hôm nay</h2>
-          <div className="chart-container" style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Doughnut data={chartData} options={{ maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '65%' }} />
+      <div className="dashboard-secondary-grid">
+        <section className="dashboard-panel" aria-labelledby="alerts-title">
+          <div className="dashboard-panel__header">
+            <div>
+              <p className="dashboard-panel__eyebrow">Ưu tiên vận hành</p>
+              <h2 id="alerts-title">Cảnh báo gần đây</h2>
+            </div>
+            <button type="button" className="dashboard-text-button" onClick={() => setPage('alerts')}>
+              Xem cảnh báo <i className="fa-solid fa-arrow-right" aria-hidden="true" />
+            </button>
           </div>
-        </div>
+
+          {pendingAlerts.length === 0 ? (
+            <div className="dashboard-empty-state dashboard-empty-state--compact">
+              <i className="fa-solid fa-circle-check" aria-hidden="true" />
+              <div>
+                <strong>Không có cảnh báo chờ xử lý</strong>
+                <p>Hệ thống đang vận hành trong ngưỡng an toàn.</p>
+              </div>
+            </div>
+          ) : (
+            <div className="dashboard-alert-list">
+              {pendingAlerts.map((alert) => (
+                <button
+                  type="button"
+                  className="dashboard-alert-item"
+                  key={alert.id}
+                  onClick={() => setPage('alerts')}
+                >
+                  <span className="dashboard-alert-item__icon" aria-hidden="true">
+                    <i className="fa-solid fa-triangle-exclamation" />
+                  </span>
+                  <span className="dashboard-alert-item__content">
+                    <strong>{alert.bin}</strong>
+                    <span>Ngăn {wasteLabel(alert.compartment)} đã đạt {alert.fill}%</span>
+                  </span>
+                  <span className="dashboard-alert-item__time">{alert.time}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="dashboard-panel" aria-labelledby="ranking-title">
+          <div className="dashboard-panel__header">
+            <div>
+              <p className="dashboard-panel__eyebrow">Hiệu suất thiết bị</p>
+              <h2 id="ranking-title">Xếp hạng {period.chartTitle.toLowerCase()}</h2>
+            </div>
+          </div>
+
+          {ranking.length === 0 ? (
+            <div className="dashboard-empty-state dashboard-empty-state--compact">
+              <i className="fa-solid fa-ranking-star" aria-hidden="true" />
+              <div>
+                <strong>Chưa có dữ liệu xếp hạng</strong>
+                <p>Cần ít nhất 1 lượt phân loại trong kỳ.</p>
+              </div>
+            </div>
+          ) : (
+            <ol className="dashboard-ranking-list">
+              {ranking.slice(0, 4).map((row, index) => (
+                <li key={`${row.name}-${index}`}>
+                  <span className={`dashboard-rank dashboard-rank--${index + 1}`}>{index + 1}</span>
+                  <span className="dashboard-ranking-list__name">{row.name}</span>
+                  <strong>{NUMBER_FORMATTER.format(row.points)} lượt</strong>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
       </div>
     </section>
   );

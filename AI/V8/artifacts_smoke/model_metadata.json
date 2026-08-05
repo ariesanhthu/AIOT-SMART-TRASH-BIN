@@ -1,0 +1,194 @@
+{
+  "model_version": "tinycnn-v8-rotation-light-robust",
+  "created_utc": "2026-08-04T14:10:00.498074+00:00",
+  "labels": [
+    "paper",
+    "plastic",
+    "organic"
+  ],
+  "class_to_index": {
+    "paper": 0,
+    "plastic": 1,
+    "organic": 2
+  },
+  "dataset_root": "F:\\ANHTHU\\1-HCMUS\\1 - STUDY\\0-now\\AIOT\\PROJECT\\CODE\\AIOT-SMART-TRASH-BIN\\AI\\V8\\dataset_prepared",
+  "dataset_counts": {
+    "train": {
+      "paper": 13,
+      "plastic": 21,
+      "organic": 14
+    },
+    "validation": {
+      "paper": 4,
+      "plastic": 4,
+      "organic": 3
+    },
+    "test": {
+      "paper": 3,
+      "plastic": 5,
+      "organic": 3
+    }
+  },
+  "preprocessing": {
+    "operation_order": [
+      "decode RGB",
+      "center square crop",
+      "nearest-neighbor floor resize to 96x96",
+      "RGB565 low-bit truncation",
+      "bounded gray-world white balance",
+      "bounded mean-luminance normalization",
+      "normalize float32 to [0,1]"
+    ],
+    "rgb565_steps": [
+      8,
+      4,
+      8
+    ],
+    "white_balance": {
+      "method": "gray-world channel means",
+      "gain_q10_limits": [
+        768,
+        1365
+      ],
+      "gain_limits": [
+        0.75,
+        1.3330078125
+      ]
+    },
+    "luminance": {
+      "formula": "(77*R + 150*G + 29*B + 128)//256",
+      "mean_dead_band": [
+        96,
+        160
+      ],
+      "gain_q8_limits": [
+        192,
+        341
+      ]
+    }
+  },
+  "augmentation": {
+    "train_only": true,
+    "views_per_source_per_epoch": 2,
+    "geometry": {
+      "rotation_degrees": [
+        0,
+        90,
+        180,
+        270
+      ],
+      "interpolation": "none (tf.image.rot90)",
+      "flip": false,
+      "scale": false,
+      "translation": false,
+      "shear": false,
+      "perspective": false,
+      "crop_jitter": false
+    },
+    "lighting_before_normalization": {
+      "gamma": [
+        0.55,
+        1.8
+      ],
+      "exposure_gain": [
+        0.45,
+        1.8
+      ],
+      "contrast": [
+        0.7,
+        1.35
+      ],
+      "per_channel_illuminant_gain": [
+        0.72,
+        1.28
+      ]
+    },
+    "validation_test_augmented": false
+  },
+  "training": {
+    "balanced_round_robin": true,
+    "epochs_requested": 2,
+    "epochs_completed": 2,
+    "best_epoch": 1,
+    "batch_size": 16,
+    "steps_per_epoch": 8,
+    "seed": 8,
+    "duration_seconds": 9.523888399999123
+  },
+  "validation_metrics": {
+    "accuracy": 0.36363636363636365,
+    "macro_recall": 0.3333333333333333,
+    "minimum_class_recall": 0.0,
+    "recall_per_class": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "precision_per_class": [
+      0.0,
+      0.36363636363636365,
+      0.0
+    ],
+    "confusion_matrix": [
+      [
+        0,
+        4,
+        0
+      ],
+      [
+        0,
+        4,
+        0
+      ],
+      [
+        0,
+        3,
+        0
+      ]
+    ]
+  },
+  "test_metrics": {
+    "accuracy": 0.45454545454545453,
+    "macro_recall": 0.3333333333333333,
+    "minimum_class_recall": 0.0,
+    "recall_per_class": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "precision_per_class": [
+      0.0,
+      0.45454545454545453,
+      0.0
+    ],
+    "confusion_matrix": [
+      [
+        0,
+        3,
+        0
+      ],
+      [
+        0,
+        5,
+        0
+      ],
+      [
+        0,
+        3,
+        0
+      ]
+    ]
+  },
+  "environment": {
+    "python": "3.12.9",
+    "tensorflow": "2.20.0",
+    "devices": [
+      "/physical_device:CPU:0"
+    ]
+  },
+  "model": {
+    "file": "model_float.keras",
+    "bytes": 722246,
+    "sha256": "9b7653dd9ba5e9e34104fab2b5752181aa5f9986b28addd84f0bb9bb6f1d4c7a"
+  }
+}

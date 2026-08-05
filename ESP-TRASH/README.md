@@ -13,8 +13,9 @@ Firmware thử credential đã lưu trong NVS trước, sau đó dùng `WIFI_SSI
 `FIREBASE_*`. BLE provisioning không được link vào firmware để dành IRAM cho
 HTTPS Cloudinary và Firebase.
 
-Mất Wi-Fi không làm dừng AI: ESP vẫn nhận diện và trả Nano. Firmware thử
-kết nối lại ở lần upload tiếp theo; hiện tại không lưu hàng đợi ảnh offline vì
+Mất Wi-Fi không làm dừng AI: ESP khởi động UART/camera/model mà không chờ mạng,
+vẫn nhận diện và trả Nano. Kết nối lại Wi-Fi chạy nền mỗi 15 giây. Nếu mạng đang
+mất khi nhận `F`, ESP bỏ qua cloud ngay; không lưu hàng đợi ảnh offline vì
 RAM/flash của ESP32-CAM có giới hạn.
 
 ## Mở và nạp bằng Arduino IDE
@@ -80,9 +81,24 @@ ESP upload Cloudinary rồi commit trực tiếp Firestore
 Nano <- D <0|1> ------- ESP
 ```
 
-Nano chỉ trigger sau `R 1`, gửi lại `T`/`F` tối đa ba lần nếu mất ACK và luôn
-gửi `F` kể cả khi nhận `C 0`. ESP bỏ qua trigger lặp khi transaction đang chạy,
-do đó gói retry không tạo thêm lần chụp ngoài ý muốn.
+Nano chỉ trigger sau `R 1`, có thể gửi lại `T` nếu mất ACK nhưng chỉ gửi `F` đúng
+một lần để không vô tình tạo lại thao tác cloud. Nano luôn gửi `F` kể cả khi
+nhận `C 0`. ESP bỏ qua trigger lặp khi transaction đang chạy, do đó gói retry
+không tạo thêm lần chụp ngoài ý muốn. Firestore commit cũng theo chính sách
+one-shot: HTTP lỗi/401 không tự POST lại cùng event.
+
+## LED AI trên Arduino Nano
+
+| Trạng thái | Hiển thị |
+| --- | --- |
+| `LOADING` | Bật/tắt luân phiên mỗi 1 giây khi khởi động, chụp, inference hoặc cloud |
+| `READY` | Sáng liên tục khi hệ thống sẵn sàng |
+| `ERROR` | Nhấp nháy nhanh liên tục (150 ms) khi UART/AI lỗi hoặc nhận `C 0` |
+| `OFF` | Tắt khi hệ thống không có điện |
+
+Cloud lỗi hoặc không có Wi-Fi không làm mất kết quả phân loại cục bộ. Với
+`C 1..3`, Nano vẫn điều khiển LED/ngăn tương ứng và chuyển về `READY` sau khi
+transaction kết thúc. Với `C 0`, LED AI giữ `ERROR` cho tới lượt xử lý mới.
 
 Serial Monitor 115200 baud test được toàn bộ cloud pipeline:
 

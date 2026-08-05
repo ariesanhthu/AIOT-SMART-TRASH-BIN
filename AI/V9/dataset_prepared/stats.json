@@ -1,0 +1,186 @@
+{
+  "schema_version": 1,
+  "created_utc": "2026-08-05T04:34:06+00:00",
+  "source_root": "F:\\ANHTHU\\1-HCMUS\\1 - STUDY\\0-now\\AIOT\\PROJECT\\CODE\\AIOT-SMART-TRASH-BIN\\AI\\V9\\dataset_prepared",
+  "labels": [
+    "paper",
+    "plastic",
+    "organic"
+  ],
+  "class_to_index": {
+    "paper": 0,
+    "plastic": 1,
+    "organic": 2
+  },
+  "seed": 9,
+  "split_strategy": "manual per-image visual review; balanced object count/size/position; all stored augmentations train-only; no chronological slicing",
+  "counts": {
+    "train": {
+      "paper": 75,
+      "plastic": 75,
+      "organic": 75
+    },
+    "validation": {
+      "paper": 7,
+      "plastic": 7,
+      "organic": 7
+    },
+    "test": {
+      "paper": 7,
+      "plastic": 7,
+      "organic": 7
+    }
+  },
+  "total": 267,
+  "split_percent": {
+    "train": 84.2697,
+    "validation": 7.8652,
+    "test": 7.8652
+  },
+  "class_total": {
+    "paper": 89,
+    "plastic": 89,
+    "organic": 89
+  },
+  "kind_counts": {
+    "train": {
+      "original": 48,
+      "existing_augmentation": 86,
+      "v9_augmentation": 91
+    },
+    "validation": {
+      "original": 21,
+      "existing_augmentation": 0,
+      "v9_augmentation": 0
+    },
+    "test": {
+      "original": 21,
+      "existing_augmentation": 0,
+      "v9_augmentation": 0
+    }
+  },
+  "pre_v9_reviewed_visual_distribution": {
+    "train": {
+      "paper": {
+        "paper_esp32_varied_pose": 14,
+        "paper_legacy_varied_pose": 34
+      },
+      "plastic": {
+        "plastic_bottle": 48
+      },
+      "organic": {
+        "lime_1": 3,
+        "lime_2": 1,
+        "lime_3_plus": 4,
+        "lime_legacy": 20,
+        "rambutan": 20
+      }
+    },
+    "validation": {
+      "paper": {
+        "paper_esp32_varied_pose": 7,
+        "paper_legacy_varied_pose": 0
+      },
+      "plastic": {
+        "plastic_bottle": 7
+      },
+      "organic": {
+        "lime_1": 3,
+        "lime_2": 2,
+        "lime_3_plus": 2,
+        "lime_legacy": 0,
+        "rambutan": 0
+      }
+    },
+    "test": {
+      "paper": {
+        "paper_esp32_varied_pose": 6,
+        "paper_legacy_varied_pose": 1
+      },
+      "plastic": {
+        "plastic_bottle": 7
+      },
+      "organic": {
+        "lime_1": 2,
+        "lime_2": 3,
+        "lime_3_plus": 2,
+        "lime_legacy": 0,
+        "rambutan": 0
+      }
+    }
+  },
+  "exact_duplicates_removed": 12,
+  "duplicate_resolution": [
+    {
+      "sha256": "033a4974d6876650dbe209df9b9d3deed9c6ddec7fbd6d02c28653b043c88aa4",
+      "kept": "train/organic/esp32-cam-2026-08-01T09-24-19-364Z.jpg",
+      "removed": "train/organic/esp32-cam-2026-08-01T09-24-19-364Z copy.jpg"
+    },
+    {
+      "sha256": "050bb1e72ccb2f2996070596abf5fa149516578083b2b3058c165c9fddb8cb44",
+      "kept": "test/organic/esp32-cam-2026-08-01T09-26-13-328Z.jpg",
+      "removed": "train/organic/esp32-cam-2026-08-01T09-26-13-328Z.jpg"
+    },
+    {
+      "sha256": "7724d0de866c2530effd764c99d65dc64670555012e5078af1053239e624119a",
+      "kept": "train/paper/esp32-cam-2026-08-01T09-21-17-077Z.jpg",
+      "removed": "test/paper/esp32-cam-2026-08-01T09-21-17-077Z copy.jpg"
+    },
+    {
+      "sha256": "7c8bfc79fbfa23ccf2343572b9b0ac362a893082ad21301de7751eb1971e2157",
+      "kept": "train/plastic/plastic_014__aug_v2_03.jpg",
+      "removed": "train/plastic/v4_plastic_7c8bfc79fbfa23ccf2343572.jpg"
+    },
+    {
+      "sha256": "83e3bfdbee7e2315737fd1deb4fd4e2993ea62c52bc1bd699595eb0736aec3ab",
+      "kept": "test/organic/esp32-cam-2026-08-01T09-26-34-723Z.jpg",
+      "removed": "train/organic/esp32-cam-2026-08-01T09-26-34-723Z.jpg"
+    },
+    {
+      "sha256": "921b863adcedb4f12c41594bbbdc88799c85a3bf95f8570cf340e553827fd8af",
+      "kept": "train/paper/esp32-cam-2026-08-01T09-21-24-094Z.jpg",
+      "removed": "test/paper/esp32-cam-2026-08-01T09-21-24-094Z copy.jpg"
+    },
+    {
+      "sha256": "ae828013084f49b7a744734696896ae61b913d626c7c6d55101f557adeb3592a",
+      "kept": "validation/paper/esp32-cam-2026-08-01T09-21-32-945Z.jpg",
+      "removed": "test/paper/esp32-cam-2026-08-01T09-21-32-945Z copy.jpg"
+    },
+    {
+      "sha256": "b9ce1118370072b18b33d051d3974e51090508c0d95d686b01f8867b73e4191f",
+      "kept": "test/organic/esp32-cam-2026-08-01T09-26-02-308Z.jpg",
+      "removed": "train/organic/esp32-cam-2026-08-01T09-26-02-308Z.jpg"
+    },
+    {
+      "sha256": "ba3ec781bfa2966c327444b191460b0c6b74b95126e0068b21bdee5c5773f344",
+      "kept": "train/paper/esp32-cam-2026-08-01T09-20-56-169Z.jpg",
+      "removed": "test/paper/esp32-cam-2026-08-01T09-20-56-169Z copy.jpg"
+    },
+    {
+      "sha256": "d77c0abacfe7dfb381d5c048aefda92818ab6f4e4881f2db2a850297a8d3c8c5",
+      "kept": "train/organic/esp32-cam-2026-08-01T09-24-14-272Z.jpg",
+      "removed": "train/organic/esp32-cam-2026-08-01T09-24-14-272Z copy.jpg"
+    },
+    {
+      "sha256": "e2834d0257298bfa33c50213ed5c46711bcfa00b56641bd4b37538d99ed65f52",
+      "kept": "train/paper/esp32-cam-2026-08-01T09-21-08-060Z.jpg",
+      "removed": "test/paper/esp32-cam-2026-08-01T09-21-08-060Z copy.jpg"
+    },
+    {
+      "sha256": "ef4b7d82d7fcb300da283878cf70cf33f02d64a422c8462b36c406a0f64306e1",
+      "kept": "train/paper/esp32-cam-2026-08-01T09-21-43-340Z.jpg",
+      "removed": "test/paper/esp32-cam-2026-08-01T09-21-43-340Z copy.jpg"
+    }
+  ],
+  "unique_source_images_preserved": 176,
+  "new_v9_augmentations": 91,
+  "new_image_categories_added": 0,
+  "validation_test_augmented": false,
+  "source_group_leakage": 0,
+  "exact_hash_leakage": 0,
+  "online_augmentation_eligible": 0,
+  "dataset_manifest_sha256": "4bc0c2f1eda9079862701fad64e18590950061fdd5787e43d870aff8a9ebb668",
+  "limitation": "All ESP32 captures still come from the same 2026-08-01 session; collect a later independent session before claiming deployment accuracy.",
+  "updated_utc": "2026-08-05T04:55:09+00:00",
+  "augmentation_materialized": true
+}

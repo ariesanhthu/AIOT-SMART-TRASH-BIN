@@ -1,73 +1,63 @@
-# React + TypeScript + Vite
+# Smart Trash Bin Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Dashboard React 19 + TypeScript + Vite. Dữ liệu thiết bị, sự kiện và thống kê được đọc/ghi qua Spring Boot backend; Firebase Web SDK chỉ dùng để đăng nhập và lấy Firebase ID Token cho request quản trị.
 
-Currently, two official plugins are available:
+## Cài đặt
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Yêu cầu Node.js 20 trở lên. Chạy từ thư mục `frontend`:
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```powershell
+npm ci
+Copy-Item .env.example .env.local
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Mở `.env.local` và điền cấu hình Firebase Web App. Khi chạy dev, để browser gọi
+`/api` cùng origin và để Vite proxy sang backend:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```dotenv
+VITE_API_BASE_URL=
+BACKEND_URL=http://localhost:8080
 ```
+
+Không đưa Firebase service-account JSON hoặc `DEVICE_JWT_SECRET` vào frontend. Các giá trị `VITE_FIREBASE_*` là cấu hình Firebase Web App, không phải Admin SDK credential.
+
+## Chạy cùng backend
+
+Terminal 1:
+
+```powershell
+cd backend
+$env:DEVICE_PROVISIONING_SECRET = "thay-bang-secret-cua-thiet-bi"
+$env:DEVICE_JWT_SECRET = "thay-bang-khoa-ngau-nhien-it-nhat-32-ky-tu"
+.\gradlew.bat bootRun
+```
+
+Terminal 2:
+
+```powershell
+cd frontend
+npm run dev
+```
+
+Truy cập `http://localhost:5173`. Backend chạy tại `http://localhost:8080` và đã cho phép CORS từ cổng 5173.
+
+Nếu backend chạy ở máy khác nhưng frontend vẫn chạy bằng Vite dev server, đổi
+`BACKEND_URL`. Browser vẫn gọi `/api` cùng origin nên có thể mở dashboard từ IP LAN:
+
+```dotenv
+BACKEND_URL=http://192.168.1.10:8080
+```
+
+Sau khi đổi `.env.local`, phải khởi động lại Vite.
+
+## Kiểm tra
+
+```powershell
+npm run build
+npm run lint
+```
+
+Build production nhúng các biến `VITE_*` tại thời điểm build. Khi deploy frontend
+và backend khác origin, đặt `VITE_API_BASE_URL` thành URL HTTPS công khai của backend.
+
+Hướng dẫn cấu hình chi tiết backend nằm tại [backend/README.md](../backend/README.md).
