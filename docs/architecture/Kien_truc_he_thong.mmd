@@ -1,0 +1,44 @@
+flowchart LR
+    subgraph EDGE["📟 THIẾT BỊ (EDGE / EMBEDDED)"]
+        nano["Arduino Nano (CH340)<br/>1 ultrasonic kích hoạt · 3× HC-SR04<br/>3× Servo SG90 · 4× LED"]
+        esp["ESP32-CAM (AI Thinker · OV2640)<br/>TensorFlow Lite Micro — TinyCNN INT8<br/>HTTP nội bộ :80 /capture · :81 /stream"]
+        nano <-->|"UART · SoftwareSerial 9600 baud<br/>lệnh H·T·F·R·A·C·D"| esp
+    end
+
+    subgraph CLOUD["☁️ GOOGLE FIREBASE + CLOUDINARY"]
+        auth["Firebase Authentication<br/>Identity Toolkit REST"]
+        firestore["Cloud Firestore<br/>devices · events · daily_stats"]
+        cloudinary["Cloudinary<br/>ảnh vật thể đã phân loại"]
+    end
+
+    subgraph SERVER["🖥️ ỨNG DỤNG (SERVER)"]
+        backend["Spring Boot 4.1 (Java 21)<br/>Docker · Firebase Admin SDK<br/>@Scheduled: tổng hợp daily-stats"]
+        note["⚠ Device JWT API sẵn có<br/>DeviceAuthController · EventController<br/>chưa dùng bởi thiết bị thật"]
+        backend -.-> note
+    end
+
+    subgraph WEB["💻 ỨNG DỤNG (WEB DASHBOARD)"]
+        frontend["React 19 + Vite + TypeScript<br/>Tailwind · Chart.js · Firebase JS SDK"]
+    end
+
+    esp -->|"HTTPS · Identity Toolkit<br/>đăng nhập thiết bị"| auth
+    esp -->|"HTTPS · Firestore REST<br/>ghi event / device doc"| firestore
+    esp -->|"HTTPS · Cloudinary API<br/>upload ảnh"| cloudinary
+
+    firestore <-->|"Firebase Admin SDK<br/>đọc/ghi"| backend
+
+    frontend <-->|"REST API<br/>Bearer Firebase ID Token"| backend
+    frontend -.->|"Firebase JS SDK<br/>đăng nhập"| auth
+    frontend -.->|"HTTP :80/:81 · MJPEG<br/>LAN trực tiếp, không qua cloud"| esp
+
+    classDef edge fill:#dcfce7,stroke:#16a34a,color:#052e16;
+    classDef cloud fill:#dbeafe,stroke:#2563eb,color:#102a56;
+    classDef server fill:#f3e8ff,stroke:#9333ea,color:#3b0764;
+    classDef web fill:#fef9c3,stroke:#ca8a04,color:#422006;
+    classDef warn fill:#fee2e2,stroke:#dc2626,color:#450a0a;
+
+    class nano,esp edge;
+    class auth,firestore,cloudinary cloud;
+    class backend server;
+    class frontend web;
+    class note warn;
