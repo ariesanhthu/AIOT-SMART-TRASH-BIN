@@ -126,6 +126,15 @@ namespace aiot
       std::uint16_t port = 80;
     };
 
+    struct LocalDashboardConfig
+    {
+      std::uint8_t plastic_threshold = 59;
+      std::uint8_t paper_threshold = 59;
+      std::uint8_t organic_threshold = 59;
+      bool maintenance_mode = false;
+      bool loaded = false;
+    };
+
     TflmClassifier g_classifier;
     ImagePreprocessor g_preprocessor;
     CameraAdapter g_camera;
@@ -142,6 +151,7 @@ namespace aiot
     std::uint32_t g_previous_input_hash = 0;
     bool g_has_previous_capture_hash = false;
     CompartmentFillLevels g_fill_levels;
+    LocalDashboardConfig g_dashboard_config;
 
     constexpr std::uint32_t kCameraServiceRetryIntervalMs = 5000;
     constexpr std::uint32_t kNanoReadyResponseMinIntervalMs = 500;
@@ -210,6 +220,30 @@ namespace aiot
       g_nano_serial.print("A ");
       g_nano_serial.println(command_type);
       g_nano_serial.flush();
+    }
+
+    void SendNanoConfig()
+    {
+      g_nano_serial.print("G ");
+      g_nano_serial.print(static_cast<unsigned>(
+          g_dashboard_config.plastic_threshold));
+      g_nano_serial.print(' ');
+      g_nano_serial.print(static_cast<unsigned>(
+          g_dashboard_config.paper_threshold));
+      g_nano_serial.print(' ');
+      g_nano_serial.print(static_cast<unsigned>(
+          g_dashboard_config.organic_threshold));
+      g_nano_serial.print(' ');
+      g_nano_serial.println(g_dashboard_config.maintenance_mode ? 1 : 0);
+      g_nano_serial.flush();
+      Serial.printf("Config sent to Nano: plastic=%u paper=%u organic=%u "
+                    "maintenance=%u\n",
+                    static_cast<unsigned>(
+                        g_dashboard_config.plastic_threshold),
+                    static_cast<unsigned>(g_dashboard_config.paper_threshold),
+                    static_cast<unsigned>(
+                        g_dashboard_config.organic_threshold),
+                    g_dashboard_config.maintenance_mode ? 1U : 0U);
     }
 
     bool SendNanoReadyState()
@@ -1086,6 +1120,242 @@ namespace aiot
       return response_code;
     }
 
+    int ReadHttpResponseBody(WiFiClient *const client, String *const body,
+                             const std::size_t max_body_size)
+    {
+      if (client == nullptr || body == nullptr)
+      {
+        return -1;
+      }
+
+      body->remove(0);
+      const std::uint32_t started_at = millis();
+      String status_line;
+      if (!ReadHttpLineUntil(client, &status_line, started_at))
+      {
+        return -1;
+      }
+
+      int response_code = -1;
+      if (status_line.startsWith("HTTP/"))
+      {
+        const int first_space = status_line.indexOf(' ');
+        if (first_space >= 0)
+        {
+          response_code = status_line.substring(first_space + 1).toInt();
+        }
+      }
+
+      String header_line;
+      while (ReadHttpLineUntil(client, &header_line, started_at))
+      {
+        if (header_line.length() == 0)
+        {
+          break;
+        }
+      }
+
+      while ((client->connected() || client->available() > 0) &&
+             millis() - started_at < network_config::kHttpResponseTimeoutMs)
+      {
+        while (client->available() > 0)
+        {
+          const char value = static_cast<char>(client->read());
+          if (body->length() < max_body_size)
+          {
+            *body += value;
+          }
+        }
+        if (!client->connected())
+        {
+          break;
+        }
+        delay(1);
+      }
+      return response_code;
+    }
+
+    bool ExtractJsonNumber(const String &json, const char *const key,
+                           double *const value)
+    {
+      if (key == nullptr || value == nullptr)
+      {
+        return false;
+      }
+
+      const String needle = String('"') + key + '"';
+      int cursor = json.indexOf(needle);
+      if (cursor < 0)
+      {
+        return false;
+      }
+      cursor = json.indexOf(':', cursor + needle.length());
+      if (cursor < 0)
+      {
+        return false;
+      }
+
+      const char *text = json.c_str() + cursor + 1;
+      while (*text == ' ' || *text == '\t' || *text == '\r' || *text == '\n')
+      {
+        ++text;
+      }
+
+      char *end = nullptr;
+      const double parsed = std::strtod(text, &end);
+      if (end == text)
+      {
+        return false;
+      }
+      *value = parsed;
+      return true;
+    }
+
+    bool ExtractJsonBool(const String &json, const char *const key,
+                         bool *const value)
+    {
+      if (key == nullptr || value == nullptr)
+      {
+        return false;
+      }
+
+      const String needle = String('"') + key + '"';
+      int cursor = json.indexOf(needle);
+      if (cursor < 0)
+      {
+        return false;
+      }
+      cursor = json.indexOf(':', cursor + needle.length());
+      if (cursor < 0)
+      {
+        return false;
+      }
+
+      const char *text = json.c_str() + cursor + 1;
+      while (*text == ' ' || *text == '\t' || *text == '\r' || *text == '\n')
+      {
+        ++text;
+      }
+      if (std::strncmp(text, "true", 4) == 0)
+      {
+        *value = true;
+        return true;
+      }
+      if (std::strncmp(text, "false", 5) == 0)
+      {
+        *value = false;
+        return true;
+      }
+      return false;
+    }
+
+    std::uint8_t NormalizeThresholdPercent(const double threshold)
+    {
+      double percent = threshold <= 1.0 ? threshold * 100.0 : threshold;
+      if (percent < 0.0)
+      {
+        percent = 0.0;
+      }
+      if (percent > 100.0)
+      {
+        percent = 100.0;
+      }
+      return static_cast<std::uint8_t>(percent + 0.5);
+    }
+
+    bool ApplyLocalConfigJson(const String &json)
+    {
+      double plastic = 0.0;
+      double paper = 0.0;
+      double organic = 0.0;
+      bool maintenance = false;
+      if (!ExtractJsonNumber(json, "plastic", &plastic) ||
+          !ExtractJsonNumber(json, "paper", &paper) ||
+          !ExtractJsonNumber(json, "organic", &organic))
+      {
+        return false;
+      }
+
+      ExtractJsonBool(json, "maintenanceMode", &maintenance);
+      g_dashboard_config.plastic_threshold =
+          NormalizeThresholdPercent(plastic);
+      g_dashboard_config.paper_threshold = NormalizeThresholdPercent(paper);
+      g_dashboard_config.organic_threshold =
+          NormalizeThresholdPercent(organic);
+      g_dashboard_config.maintenance_mode = maintenance;
+      g_dashboard_config.loaded = true;
+      return true;
+    }
+
+    bool PullLocalDashboardConfig()
+    {
+      if (WiFi.status() != WL_CONNECTED)
+      {
+        return false;
+      }
+
+      HttpEndpoint endpoint{};
+      if (!ParseHttpEndpoint(network_config::kServerUrl, &endpoint))
+      {
+        Serial.println("Config URL base must be plain HTTP");
+        return false;
+      }
+
+      std::snprintf(endpoint.path, sizeof(endpoint.path),
+                    "/api/devices/%s/config", network_config::kDeviceId);
+
+      WiFiClient client;
+      client.setTimeout(network_config::kHttpResponseTimeoutMs);
+      if (!client.connect(endpoint.host, endpoint.port,
+                          network_config::kHttpConnectTimeoutMs))
+      {
+        Serial.printf("Local config connect failed: %s:%u\n", endpoint.host,
+                      static_cast<unsigned>(endpoint.port));
+        return false;
+      }
+
+      client.printf("GET %s HTTP/1.1\r\n", endpoint.path);
+      if (endpoint.port == 80)
+      {
+        client.printf("Host: %s\r\n", endpoint.host);
+      }
+      else
+      {
+        client.printf("Host: %s:%u\r\n", endpoint.host,
+                      static_cast<unsigned>(endpoint.port));
+      }
+      client.println("Connection: close");
+      client.println();
+
+      String body;
+      const int response_code = ReadHttpResponseBody(&client, &body, 1024);
+      client.stop();
+      if (response_code < 200 || response_code >= 300)
+      {
+        Serial.printf("Local config pull failed: HTTP %d\n", response_code);
+        return false;
+      }
+      if (!ApplyLocalConfigJson(body))
+      {
+        Serial.println("Local config response could not be parsed");
+        return false;
+      }
+
+      Serial.printf("Local config applied: plastic=%u paper=%u organic=%u "
+                    "maintenance=%u\n",
+                    static_cast<unsigned>(
+                        g_dashboard_config.plastic_threshold),
+                    static_cast<unsigned>(g_dashboard_config.paper_threshold),
+                    static_cast<unsigned>(
+                        g_dashboard_config.organic_threshold),
+                    g_dashboard_config.maintenance_mode ? 1U : 0U);
+      if (!g_nano_transaction_active)
+      {
+        SendNanoConfig();
+      }
+      return true;
+    }
+
     ServerSyncResult UploadRecognition(
         const NanoResult nano_result,
         const RecognitionTelemetry &telemetry,
@@ -1298,6 +1568,10 @@ namespace aiot
     }
 
     const bool wifi_confirmed = ConfirmInitialWifiConnectivity();
+    if (wifi_confirmed)
+    {
+      PullLocalDashboardConfig();
+    }
 
     MaintainCameraWebServices();
     Serial.printf("Local sync: ESP JPEG -> http://%s:%u%s\n",
@@ -1391,6 +1665,10 @@ namespace aiot
     if (command_from_nano)
     {
       FinishNanoTransaction(sync_result);
+    }
+    if (WiFi.status() == WL_CONNECTED)
+    {
+      PullLocalDashboardConfig();
     }
   }
 } // namespace aiot
