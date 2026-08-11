@@ -3,20 +3,36 @@
 Firmware chạy model TinyCNN V9 full INT8 cục bộ để phân loại `paper`, `plastic`
 và `organic` với preprocessing giảm nhạy theo độ sáng và màu nguồn sáng.
 Nano gửi lệnh chụp, ESP32-CAM trả kết quả qua UART ngay sau inference, sau đó
-upload ảnh lên Cloudinary và ghi metadata trực tiếp vào Firebase/Firestore.
+POST trực tiếp JPEG, kết quả AI và ba mức đầy vào Python server chạy trên máy.
+Ảnh được lưu local và frontend tải lại từ chính server này; không dùng
+Cloudinary, Spring backend hay Firebase trong đường chạy hiện tại.
 
 ## Cấu hình mạng
 
-Firmware thử credential đã lưu trong NVS trước, sau đó dùng `WIFI_SSID` và
-`WIFI_PASSWORD` trong file ignored `secrets.h`. Sao chép
-`secrets.example.h` thành `secrets.h`, rồi điền Cloudinary và các trường
-`FIREBASE_*`. BLE provisioning không được link vào firmware để dành IRAM cho
-HTTPS Cloudinary và Firebase.
+Firmware dùng `WIFI_SSID` và `WIFI_PASSWORD` trong file ignored `secrets.h`.
+ESP và máy chạy Python server phải cùng Wi-Fi `AIoTSTB`. Cấu hình hiện tại:
+
+```text
+ESP32-CAM:       172.20.10.2
+Python server:   172.20.10.4:8000
+POST detection:  http://172.20.10.4:8000/api/v1/detections
+```
+
+Nếu DHCP đổi IP máy, sửa `kLocalServerHost` và `kServerUrl` trong
+`network_config.h`, build rồi flash lại ESP.
 
 Mất Wi-Fi không làm dừng AI: ESP khởi động UART/camera/model mà không chờ mạng,
 vẫn nhận diện và trả Nano. Kết nối lại Wi-Fi chạy nền mỗi 15 giây. Nếu mạng đang
-mất khi nhận `F`, ESP bỏ qua cloud ngay; không lưu hàng đợi ảnh offline vì
+mất khi nhận `F`, ESP bỏ qua upload ngay; không lưu hàng đợi ảnh offline vì
 RAM/flash của ESP32-CAM có giới hạn.
+
+Ở lần boot đầu, sau khi camera/model sẵn sàng, ESP chỉ chờ Wi-Fi tối đa 5 giây.
+Nếu Wi-Fi đã kết nối thì đi tiếp ngay, không probe/chờ Python server lúc boot.
+Kết nối server chỉ được thử khi có một ảnh hoàn chỉnh cần upload. ESP không tự phát
+`R 1`; sau khi boot xong nó chỉ trả trạng thái khi Nano gửi probe `H 1`, tránh
+để một gói ready cũ chen vào transaction.
+Nếu server chưa sẵn sàng, AI local tiếp tục hoạt động và firmware thử gửi lại ở
+transaction kế tiếp.
 
 ## Mở và nạp bằng Arduino IDE
 
@@ -63,8 +79,8 @@ ESP trả:
 | `C 2\n` | Giấy (`paper`) |
 | `C 3\n` | Hữu cơ (`organic`) |
 | `A F\n` | Đã nhận đủ ba mức đầy từ Nano |
-| `D 1\n` | Cloudinary và Firestore thành công; ESP đã rảnh |
-| `D 0\n` | Đồng bộ cloud thất bại nhưng ESP đã rảnh |
+| `D 1\n` | Python server đã nhận và lưu ảnh; ESP đã rảnh |
+| `D 0\n` | Gửi server local thất bại nhưng ESP đã rảnh |
 
 Luồng UART đầy đủ:
 
@@ -77,48 +93,46 @@ Nano <- C <0..3> ------ ESP
 Nano xử lý servo/cảnh báo và đo lại ba ngăn
 Nano -- F <p> <pa> <o> -> ESP
 Nano <- A F ----------- ESP
-ESP upload Cloudinary rồi commit trực tiếp Firestore
+ESP POST JPEG + metadata tới Python server local
 Nano <- D <0|1> ------- ESP
 ```
 
-Nano chỉ trigger sau `R 1`, có thể gửi lại `T` nếu mất ACK nhưng chỉ gửi `F` đúng
-một lần để không vô tình tạo lại thao tác cloud. Nano luôn gửi `F` kể cả khi
+Nano chỉ trigger sau `R 1`, có thể gửi lại `T` nếu mất ACK nhưng chỉ gửi `F`
+đúng một lần để không vô tình tạo lại ảnh/event. Nano luôn gửi `F` kể cả khi
 nhận `C 0`. ESP bỏ qua trigger lặp khi transaction đang chạy, do đó gói retry
-không tạo thêm lần chụp ngoài ý muốn. Firestore commit cũng theo chính sách
-one-shot: HTTP lỗi/401 không tự POST lại cùng event.
+không tạo thêm lần chụp ngoài ý muốn. JPEG POST theo chính sách one-shot; Nano
+nhận `D 0` khi server không trả HTTP 2xx.
 
 ## LED AI trên Arduino Nano
 
 | Trạng thái | Hiển thị |
 | --- | --- |
-| `LOADING` | Bật/tắt luân phiên mỗi 1 giây khi khởi động, chụp, inference hoặc cloud |
+| `LOADING` | Bật/tắt luân phiên mỗi 1 giây khi khởi động, chụp, inference hoặc gửi server |
 | `READY` | Sáng liên tục khi hệ thống sẵn sàng |
 | `ERROR` | Nhấp nháy nhanh liên tục (150 ms) khi UART/AI lỗi hoặc nhận `C 0` |
 | `OFF` | Tắt khi hệ thống không có điện |
 
-Cloud lỗi hoặc không có Wi-Fi không làm mất kết quả phân loại cục bộ. Với
+Server lỗi hoặc không có Wi-Fi không làm mất kết quả phân loại cục bộ. Với
 `C 1..3`, Nano vẫn điều khiển LED/ngăn tương ứng và chuyển về `READY` sau khi
 transaction kết thúc. Với `C 0`, LED AI giữ `ERROR` cho tới lượt xử lý mới.
 
-Serial Monitor 115200 baud test được toàn bộ cloud pipeline:
+Serial Monitor 115200 baud test được toàn bộ local pipeline:
 
 1. Nhập `1` hoặc `T 1` để chụp và phân loại.
 2. Sau khi thấy `Test result`, nhập `F 10 10 10` theo thứ tự nhựa, giấy, hữu cơ.
-3. Firmware upload JPEG lên Cloudinary, in `secure_url`, rồi gửi event
-   `CLASSIFY`/`ERROR` (kèm `image_url`) trực tiếp vào Firestore. Nếu ngăn nào
-   đó vượt ngưỡng đầy, firmware gửi thêm một event `FULL_ALERT` riêng.
+3. Firmware POST JPEG và metadata tới Python server. Server lưu file ảnh,
+   tạo event `CLASSIFY` và tự sinh `FULL_ALERT` khi mức đầy vượt ngưỡng.
 
 Firmware chờ lệnh `F` tối đa 60 giây khi test Monitor. Lệnh `WIFI_RESET` vẫn
 giữ nguyên.
 
-## Đồng bộ trực tiếp Firebase
+## Đồng bộ qua Python server local
 
-Ảnh QVGA RGB565 dùng cho AI được chuyển thành JPEG quality 80 và upload trực
-tiếp tới Cloudinary bằng multipart HTTPS (nếu upload thất bại, event vẫn được
-gửi với `imageUrl: null`). ESP dùng `FIREBASE_PROJECT_ID`, `FIREBASE_API_KEY`,
-`FIREBASE_USER_EMAIL`, `FIREBASE_USER_PASSWORD` và `FIREBASE_DEVICE_ID` từ
-`secrets.h` để lấy Firebase ID token và commit trực tiếp vào Firestore; không
-gọi backend service.
+Ảnh QVGA RGB565 dùng cho AI được chuyển thành JPEG quality 80 rồi POST trực tiếp
+tới `server-tmp` dưới dạng body `image/jpeg`. Kết quả, confidence, xác suất,
+firmware/model version và ba mức đầy nằm trong HTTP headers. Server lưu JPEG ở
+`server-tmp/data/images` và metadata ở `server-tmp/data/metadata`; frontend đọc
+ảnh qua `/api/v1/detections/{id}/image` với `Cache-Control: no-store`.
 
 ## Pipeline AI
 
@@ -146,8 +160,9 @@ queue có thể được chụp trước trigger. Với mỗi `T 1`, firmware hi
 
 1. ACK `A T` ngay cho Nano.
 2. Chờ `2000 ms` để vật đi vào vùng camera và ổn định.
-3. Giữ camera mutex, bỏ một frame đang chờ, rồi đợi frame kế tiếp hoàn tất.
-4. Dùng đúng frame mới đó cho cả preprocessing AI và JPEG telemetry.
+3. Ghi mốc thời gian, giữ camera mutex và bỏ một frame đang chờ.
+4. Chỉ nhận frame có timestamp sau mốc đó; frame cũ tiếp tục bị trả về driver.
+5. Dùng đúng frame mới đó cho cả preprocessing AI và JPEG telemetry.
 
 Serial Monitor in sequence, thời gian từ trigger tới frame, timestamp/tuổi frame,
 hash ảnh RGB565, hash tensor input và cờ `same_raw`/`same_input`. Xem quy trình

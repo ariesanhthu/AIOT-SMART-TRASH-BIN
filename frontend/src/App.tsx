@@ -6,10 +6,8 @@ import { StatisticsPage } from './pages/StatisticsPage';
 import { BinDetailPage } from './pages/BinDetailPage';
 import { ConfigPage } from './pages/ConfigPage';
 import { CameraPage } from './pages/CameraPage';
-import { LoginPage } from './pages/LoginPage';
 import { useBins } from './hooks/useBins';
 import { useFullAlerts } from './hooks/useFullAlerts';
-import { useAuthUser } from './hooks/useAuthUser';
 import { SupportPage } from './pages/SupportPage';
 import './index.css';
 
@@ -18,7 +16,6 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
 
-  const { user, loading: authLoading, logout } = useAuthUser();
   const { bins, loading: binsLoading, reload: reloadBins } = useBins();
   const { alerts, resolveAlert, markAllResolved } = useFullAlerts(bins);
 
@@ -28,30 +25,6 @@ function App() {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(''), 2800);
   };
-
-  // Chờ Firebase xác định xong trạng thái đăng nhập trước khi quyết định
-  // hiện Login hay Dashboard — tránh nháy màn hình Login rồi bật lại Dashboard.
-  if (authLoading) {
-    return (
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: '100%',
-        height: '100vh',
-        gap: 12,
-        color: 'var(--on-surface)',
-      }}>
-        <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: 28 }}></i>
-        <span>Đang kiểm tra đăng nhập...</span>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <LoginPage />;
-  }
 
   if (binsLoading) {
     return (
@@ -112,8 +85,7 @@ function App() {
         isOpen={sidebarOpen}
         toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
         alertCount={pendingAlertCount}
-        userEmail={user.email ?? 'Admin'}
-        onLogout={logout}
+        userEmail="Local Admin"
       />
 
       <main className="main-canvas">

@@ -59,7 +59,7 @@ export const BinDetailPage: React.FC<Props> = ({ bins }) => {
               const v = bin.compartments[k];
               if (v === undefined) return null;
               const wt = WASTE_TYPES[k];
-              const thresh = bin.thresholds[k] ?? 80;
+              const thresh = bin.thresholds[k] ?? 59;
               const overThresh = v >= thresh;
 
               return (

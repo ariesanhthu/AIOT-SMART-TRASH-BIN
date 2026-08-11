@@ -1095,6 +1095,18 @@
     .dashboard-compartment__meta strong.is-over {
       color: var(--error);
     }
+    .dashboard-full-label {
+      display: inline-flex;
+      margin-left: 6px;
+      padding: 1px 6px;
+      border-radius: var(--radius-full);
+      background: var(--error);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 800;
+      line-height: 14px;
+      text-transform: uppercase;
+    }
     .dashboard-compartment__track {
       display: block;
       width: 100%;

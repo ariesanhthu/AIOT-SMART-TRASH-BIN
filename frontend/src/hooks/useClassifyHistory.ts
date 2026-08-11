@@ -7,11 +7,30 @@ export function useClassifyHistory(deviceId: string | null) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!deviceId) return;
-    setLoading(true);
-    fetchClassifyHistory(deviceId)
-      .then(setRows)
-      .finally(() => setLoading(false));
+    if (!deviceId) {
+      setRows([]);
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const load = (showLoading: boolean) => {
+      if (showLoading) setLoading(true);
+      fetchClassifyHistory(deviceId)
+        .then((data) => {
+          if (!cancelled) setRows(data);
+        })
+        .finally(() => {
+          if (!cancelled && showLoading) setLoading(false);
+        });
+    };
+
+    load(true);
+    const timer = window.setInterval(() => load(false), 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, [deviceId]);
 
   return { rows, loading };

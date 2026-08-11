@@ -50,8 +50,11 @@ class CameraAdapter final {
   // CAMERA_GRAB_WHEN_EMPTY may keep the first queued framebuffer from well
   // before a trigger. Keep the camera mutex while discarding queued frames and
   // waiting for the final frame so the web stream cannot interleave a capture.
+  // When not_before_us is non-zero, frames timestamped before that monotonic
+  // time are also returned to the driver instead of being exposed to callers.
   [[nodiscard]] CameraFrameLease CaptureFresh(
       Status* status, std::uint8_t discard_frames = 1U,
+      std::uint64_t not_before_us = 0U,
       std::uint32_t timeout_ms = 1000U) noexcept;
   [[nodiscard]] static Status MakeImageView(const camera_fb_t& frame,
                                             ImageView* view) noexcept;

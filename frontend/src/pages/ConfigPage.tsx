@@ -13,9 +13,9 @@ interface Props {
 export const ConfigPage: React.FC<Props> = ({ bins, reloadBins, showToast }) => {
   const [currentBinId, setCurrentBinId] = useState(bins[0]?.id ?? '');
   const [thresholds, setThresholds] = useState<Record<WasteTypeKey, number>>({
-    organic: 80,
-    paper: 80,
-    plastic: 80,
+    organic: 59,
+    paper: 59,
+    plastic: 59,
   });
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [savingThreshold, setSavingThreshold] = useState(false);
@@ -35,9 +35,9 @@ export const ConfigPage: React.FC<Props> = ({ bins, reloadBins, showToast }) => 
     if (!currentBin) return;
     setMaintenanceMode(currentBin.maintenanceMode);
     setThresholds({
-      organic: currentBin.thresholds.organic ?? 80,
-      paper: currentBin.thresholds.paper ?? 80,
-      plastic: currentBin.thresholds.plastic ?? 80,
+      organic: currentBin.thresholds.organic ?? 59,
+      paper: currentBin.thresholds.paper ?? 59,
+      plastic: currentBin.thresholds.plastic ?? 59,
     });
   }, [currentBin]);
 
@@ -58,7 +58,7 @@ export const ConfigPage: React.FC<Props> = ({ bins, reloadBins, showToast }) => 
         maintenanceMode,
       });
       reloadBins(false);
-      showToast('Đã lưu ngưỡng cảnh báo xuống backend!');
+      showToast('Đã lưu ngưỡng cảnh báo xuống server local!');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Không thể lưu cấu hình');
     } finally {

@@ -26,7 +26,8 @@ Sau khi ESP nhận `T 1`:
 2. Chờ đúng 2000 ms.
 3. Khóa camera để web stream không chen vào.
 4. Lấy và trả một frame đang nằm trong queue.
-5. Chờ camera hoàn tất frame tiếp theo và giữ frame này.
+5. Chờ camera hoàn tất frame tiếp theo; chỉ giữ frame có timestamp không cũ hơn
+   mốc bắt đầu chụp mới. Frame không đạt điều kiện tiếp tục bị trả về driver.
 6. Hash ảnh RGB565, preprocess, hash tensor input, inference và encode JPEG từ
    cùng một frame.
 
@@ -65,4 +66,3 @@ và chạy model Python trên chính JPEG đó.
 Lưu ý: code Nano hiện tại dùng cảm biến siêu âm HC-SR04 tại D9/D8 để tạo trigger,
 không phải cảm biến âm thanh. LED `READY` chỉ cho biết transaction trước đã xong;
 việc ảnh mới được đảm bảo bởi delay + flush nằm ở ESP sau khi nhận `T 1`.
-

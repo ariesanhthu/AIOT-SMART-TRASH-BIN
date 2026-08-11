@@ -6,8 +6,8 @@ interface SidebarProps {
   isOpen: boolean;
   toggleSidebar: () => void;
   alertCount: number;
-  userEmail: string;      // MỚI
-  onLogout: () => void;   // MỚI
+  userEmail: string;
+  onLogout?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ currentPage, setPage, isOpen, toggleSidebar, alertCount, userEmail, onLogout }) => {
@@ -87,12 +87,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, setPage, isOpen, 
               <p className="sidebar-user-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{userEmail}</p>
               <p className="sidebar-user-role">Quản trị hệ thống</p>
             </div>
-            <i
-              className="fa-solid fa-arrow-right-from-bracket"
-              onClick={onLogout}
-              style={{ color: 'var(--outline)', fontSize: '14px', cursor: 'pointer' }}
-              title="Đăng xuất"
-            ></i>
+            {onLogout ? (
+              <i
+                className="fa-solid fa-arrow-right-from-bracket"
+                onClick={onLogout}
+                style={{ color: 'var(--outline)', fontSize: '14px', cursor: 'pointer' }}
+                title="Đăng xuất"
+              ></i>
+            ) : null}
           </div>
         </div>
       </aside>

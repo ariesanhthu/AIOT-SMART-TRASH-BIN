@@ -56,7 +56,7 @@ namespace aiot
     constexpr std::uint32_t kNanoBaud = 9600;
     constexpr int kNanoRxPin = 13; // Nano TX -> voltage divider -> ESP32 GPIO13.
     constexpr int kNanoTxPin = 14; // ESP32 GPIO14 -> Nano RX.
-    constexpr std::size_t kNanoRxBufferBytes = 64;
+    constexpr std::size_t kNanoRxBufferBytes = 128;
     constexpr std::size_t kNanoCommandBufferBytes = 32;
     constexpr unsigned long kCaptureRetryDelayMs = 30;
     constexpr std::size_t kMonitorCommandBufferBytes = 24;
@@ -83,6 +83,18 @@ namespace aiot
       kOrganic = 3,
     };
 
+    enum class ServerSyncResult : std::uint8_t
+    {
+      kSuccess,
+      kWifiUnavailable,
+      kNoJpeg,
+      kInvalidUrl,
+      kConnectFailed,
+      kWriteFailed,
+      kHttpFailed,
+      kFillTimeout,
+    };
+
     struct RecognitionTelemetry
     {
       std::uint8_t *jpeg_data = nullptr;
@@ -107,6 +119,13 @@ namespace aiot
       RecognitionTelemetry &operator=(const RecognitionTelemetry &) = delete;
     };
 
+    struct HttpEndpoint
+    {
+      char host[64]{};
+      char path[128]{};
+      std::uint16_t port = 80;
+    };
+
     TflmClassifier g_classifier;
     ImagePreprocessor g_preprocessor;
     CameraAdapter g_camera;
@@ -123,7 +142,6 @@ namespace aiot
     std::uint32_t g_previous_input_hash = 0;
     bool g_has_previous_capture_hash = false;
     CompartmentFillLevels g_fill_levels;
-    CompartmentAlertState g_alert_state;
 
     constexpr std::uint32_t kCameraServiceRetryIntervalMs = 5000;
     constexpr std::uint32_t kNanoReadyResponseMinIntervalMs = 500;
@@ -208,12 +226,44 @@ namespace aiot
       return true;
     }
 
-    void FinishNanoTransaction(const bool cloud_synced)
+    const char *ServerSyncResultName(const ServerSyncResult result)
+    {
+      switch (result)
+      {
+      case ServerSyncResult::kSuccess:
+        return "OK";
+      case ServerSyncResult::kWifiUnavailable:
+        return "WIFI";
+      case ServerSyncResult::kNoJpeg:
+        return "NO_JPEG";
+      case ServerSyncResult::kInvalidUrl:
+        return "URL";
+      case ServerSyncResult::kConnectFailed:
+        return "CONNECT";
+      case ServerSyncResult::kWriteFailed:
+        return "WRITE";
+      case ServerSyncResult::kHttpFailed:
+        return "HTTP";
+      case ServerSyncResult::kFillTimeout:
+        return "FILL_TIMEOUT";
+      }
+      return "UNKNOWN";
+    }
+
+    void FinishNanoTransaction(const ServerSyncResult result)
     {
       g_nano_transaction_active = false;
-      SendNanoMessage("D", cloud_synced ? 1U : 0U);
-      Serial.printf("Nano transaction finished: cloud=%s\n",
-                    cloud_synced ? "ok" : "failed");
+      const bool server_synced = result == ServerSyncResult::kSuccess;
+      if (!server_synced)
+      {
+        g_nano_serial.print("E ");
+        g_nano_serial.println(ServerSyncResultName(result));
+        g_nano_serial.flush();
+      }
+      SendNanoMessage("D", server_synced ? 1U : 0U);
+      Serial.printf("Nano transaction finished: local-server=%s (%s)\n",
+                    server_synced ? "ok" : "failed",
+                    ServerSyncResultName(result));
     }
 
     bool ParseNanoFillLevels(const char *const command,
@@ -272,6 +322,12 @@ namespace aiot
       CompartmentFillLevels levels;
       if (ParseNanoFillLevels(command, &levels))
       {
+        if (!g_nano_transaction_active)
+        {
+          Serial.println("Orphan fill packet received without active capture; returning D 0");
+          SendNanoMessage("D", 0U);
+          return false;
+        }
         g_fill_levels = levels;
         SendNanoAck('F');
         Serial.printf(
@@ -346,22 +402,6 @@ namespace aiot
       return NanoResult::kNotRecognized;
     }
 
-    const char *NanoResultWasteType(const NanoResult result)
-    {
-      switch (result)
-      {
-      case NanoResult::kPlastic:
-        return "plastic";
-      case NanoResult::kPaper:
-        return "paper";
-      case NanoResult::kOrganic:
-        return "organic";
-      case NanoResult::kNotRecognized:
-        return nullptr;
-      }
-      return nullptr;
-    }
-
     bool WaitForNanoFillLevels()
     {
       const std::uint32_t started_at = millis();
@@ -434,6 +474,9 @@ namespace aiot
       WiFi.setHostname(network_config::kMdnsHostname);
       WiFi.setSleep(false);
       WiFi.setAutoReconnect(true);
+      // The hotspot is nearby; lower RF power reduces ESP32-CAM current peaks
+      // while servos are connected without sacrificing LAN range here.
+      WiFi.setTxPower(WIFI_POWER_8_5dBm);
 
       if (WiFi.status() == WL_CONNECTED)
       {
@@ -476,6 +519,65 @@ namespace aiot
       SetWifiState(WifiState::kOffline);
       Serial.println("Wi-Fi offline; reconnect requested in background");
       WiFi.reconnect();
+    }
+
+    bool EnsureWifiConnectedForUpload()
+    {
+      if (WiFi.status() == WL_CONNECTED)
+      {
+        return true;
+      }
+
+      Serial.printf("Wi-Fi unavailable at upload; waiting up to %" PRIu32
+                    " ms for reconnect\n",
+                    network_config::kReconnectTimeoutMs);
+      WiFi.reconnect();
+      const std::uint32_t started_at = millis();
+      while (WiFi.status() != WL_CONNECTED &&
+             millis() - started_at < network_config::kReconnectTimeoutMs)
+      {
+        delay(100);
+      }
+
+      if (WiFi.status() != WL_CONNECTED)
+      {
+        SetWifiState(WifiState::kOffline);
+        return false;
+      }
+      SetWifiState(WifiState::kConnected);
+      Serial.printf("Wi-Fi restored before upload: IP=%s RSSI=%d dBm\n",
+                    WiFi.localIP().toString().c_str(), WiFi.RSSI());
+      return true;
+    }
+
+    bool ConfirmInitialWifiConnectivity()
+    {
+      const std::uint32_t wifi_started_ms = millis();
+      Serial.printf("Waiting up to %" PRIu32 " ms for initial Wi-Fi connection\n",
+                    network_config::kInitialWifiTimeoutMs);
+      while (WiFi.status() != WL_CONNECTED &&
+             millis() - wifi_started_ms <
+                 network_config::kInitialWifiTimeoutMs)
+      {
+        delay(250);
+      }
+
+      if (WiFi.status() != WL_CONNECTED)
+      {
+        SetWifiState(WifiState::kOffline);
+        Serial.println(
+            "Initial Wi-Fi confirmation timed out; reconnect continues in background");
+        return false;
+      }
+
+      SetWifiState(WifiState::kConnected);
+      Serial.printf("Initial Wi-Fi confirmed: IP=%s gateway=%s RSSI=%d dBm\n",
+                    WiFi.localIP().toString().c_str(),
+                    WiFi.gatewayIP().toString().c_str(), WiFi.RSSI());
+
+      // Do not probe or wait for the Python server during boot. Connectivity
+      // is checked only when a completed recognition is ready to upload.
+      return true;
     }
 
     void MaintainCameraWebServices()
@@ -609,7 +711,7 @@ namespace aiot
     bool WaitForMonitorFillLevels()
     {
       Serial.println(
-          "Enter F <plastic> <paper> <organic> to continue cloud sync");
+          "Enter F <plastic> <paper> <organic> to upload to local server");
       const std::uint32_t started_at = millis();
       while (millis() - started_at < network_config::kMonitorFillTimeoutMs)
       {
@@ -620,7 +722,7 @@ namespace aiot
         }
         delay(2);
       }
-      Serial.println("Monitor fill-level timeout; cloud sync cancelled");
+      Serial.println("Monitor fill-level timeout; local server upload cancelled");
       return false;
     }
 
@@ -674,6 +776,11 @@ namespace aiot
           sequence, network_config::kTriggerToCaptureDelayMs,
           static_cast<unsigned>(network_config::kFreshCaptureDiscardFrames));
       delay(network_config::kTriggerToCaptureDelayMs);
+      // A frame queued before this point is not allowed to reach preprocessing.
+      // CaptureFresh returns such a buffer to the driver and waits for a frame
+      // whose camera timestamp proves it was captured after this boundary.
+      const std::uint64_t fresh_frame_not_before_us =
+          static_cast<std::uint64_t>(esp_timer_get_time());
 
       std::uint32_t raw_frame_hash = 0U;
       std::uint32_t input_hash = 0U;
@@ -682,13 +789,15 @@ namespace aiot
 
       {
         CameraFrameLease frame = g_camera.CaptureFresh(
-            &status, network_config::kFreshCaptureDiscardFrames);
+            &status, network_config::kFreshCaptureDiscardFrames,
+            fresh_frame_not_before_us);
         if (!frame || status != Status::kOk)
         {
           // One short retry handles an occasional transient frame-buffer miss.
           delay(kCaptureRetryDelayMs);
           frame = g_camera.CaptureFresh(
-              &status, network_config::kFreshCaptureDiscardFrames);
+              &status, network_config::kFreshCaptureDiscardFrames,
+              fresh_frame_not_before_us);
         }
         if (!frame || status != Status::kOk)
         {
@@ -781,7 +890,6 @@ namespace aiot
       return nano_result;
     }
 
-#if 0
     bool ParseHttpEndpoint(const char *const url, HttpEndpoint *const endpoint)
     {
       if (url == nullptr || endpoint == nullptr)
@@ -870,6 +978,43 @@ namespace aiot
       client->printf("%s: %.6f\r\n", name, static_cast<double>(value));
     }
 
+    bool ReadHttpLineUntil(WiFiClient *const client, String *const line,
+                           const std::uint32_t started_at)
+    {
+      if (client == nullptr || line == nullptr)
+      {
+        return false;
+      }
+      line->remove(0);
+      while (millis() - started_at < network_config::kHttpResponseTimeoutMs)
+      {
+        while (client->available() > 0)
+        {
+          const int value = client->read();
+          if (value < 0)
+          {
+            break;
+          }
+          if (value == '\n')
+          {
+            line->trim();
+            return true;
+          }
+          if (value != '\r')
+          {
+            *line += static_cast<char>(value);
+          }
+        }
+        if (!client->connected())
+        {
+          line->trim();
+          return line->length() > 0;
+        }
+        delay(1);
+      }
+      return false;
+    }
+
     int ReadHttpResponseCode(WiFiClient *const client, char *const body_preview,
                              const std::size_t body_preview_size)
     {
@@ -878,8 +1023,12 @@ namespace aiot
         return -1;
       }
 
-      String status_line = client->readStringUntil('\n');
-      status_line.trim();
+      const std::uint32_t started_at = millis();
+      String status_line;
+      if (!ReadHttpLineUntil(client, &status_line, started_at))
+      {
+        return -1;
+      }
       int response_code = -1;
       if (status_line.startsWith("HTTP/"))
       {
@@ -890,19 +1039,30 @@ namespace aiot
         }
       }
 
-      while (client->connected() || client->available() > 0)
+      String header_line;
+      while (ReadHttpLineUntil(client, &header_line, started_at))
       {
-        const String header_line = client->readStringUntil('\n');
-        if (header_line == "\r" || header_line.length() == 0)
+        if (header_line.length() == 0)
         {
           break;
         }
       }
 
+      // The local server persists the JPEG before returning 201. For a
+      // successful response there is no reason to wait for or buffer its JSON
+      // body: return immediately so Nano receives D 1 without extra delay.
+      if (response_code >= 200 && response_code < 300)
+      {
+        if (body_preview != nullptr && body_preview_size > 0U)
+        {
+          body_preview[0] = '\0';
+        }
+        return response_code;
+      }
+
       if (body_preview != nullptr && body_preview_size > 0U)
       {
         std::size_t length = 0;
-        const std::uint32_t started_at = millis();
         while ((client->connected() || client->available() > 0) &&
                millis() - started_at < network_config::kHttpResponseTimeoutMs)
         {
@@ -926,25 +1086,27 @@ namespace aiot
       return response_code;
     }
 
-    bool UploadRecognition(const NanoResult nano_result,
-                           const RecognitionTelemetry &telemetry)
+    ServerSyncResult UploadRecognition(
+        const NanoResult nano_result,
+        const RecognitionTelemetry &telemetry,
+        const CompartmentFillLevels &fill_levels)
     {
       if (telemetry.jpeg_data == nullptr || telemetry.jpeg_length == 0U)
       {
         Serial.println("No JPEG available; telemetry upload skipped");
-        return false;
+        return ServerSyncResult::kNoJpeg;
       }
       if (WiFi.status() != WL_CONNECTED)
       {
         Serial.println("No Wi-Fi; telemetry upload skipped");
-        return false;
+        return ServerSyncResult::kWifiUnavailable;
       }
 
       HttpEndpoint endpoint{};
       if (!ParseHttpEndpoint(network_config::kServerUrl, &endpoint))
       {
         Serial.println("Telemetry URL must be plain HTTP");
-        return false;
+        return ServerSyncResult::kInvalidUrl;
       }
 
       WiFiClient client;
@@ -962,7 +1124,7 @@ namespace aiot
         Serial.println(
             "Check that server-tmp is running and kServerUrl uses the "
             "computer's current Wi-Fi IPv4 address");
-        return false;
+        return ServerSyncResult::kConnectFailed;
       }
 
       client.printf("POST %s HTTP/1.1\r\n", endpoint.path);
@@ -982,10 +1144,17 @@ namespace aiot
       client.printf("X-Device-Id: %s\r\n", network_config::kDeviceId);
       client.printf("X-Device-Token: %s\r\n", network_config::kDeviceToken);
       client.printf("X-Model-Sha256: %s\r\n", g_model_sha256);
+      client.printf("X-Firmware-Version: %s\r\n",
+                    network_config::kFirmwareVersion);
+      client.printf("X-Ai-Model-Version: %s\r\n",
+                    network_config::kAiModelVersion);
       AddUnsignedHeader(&client, "X-Result-Code",
                         static_cast<unsigned long>(nano_result));
       AddUnsignedHeader(&client, "X-Image-Width", telemetry.frame_width);
       AddUnsignedHeader(&client, "X-Image-Height", telemetry.frame_height);
+      AddUnsignedHeader(&client, "X-Fill-Plastic", fill_levels.plastic);
+      AddUnsignedHeader(&client, "X-Fill-Paper", fill_levels.paper);
+      AddUnsignedHeader(&client, "X-Fill-Organic", fill_levels.organic);
 
       if (telemetry.has_classification)
       {
@@ -1006,13 +1175,33 @@ namespace aiot
       }
       client.println();
 
-      const std::size_t written =
-          client.write(telemetry.jpeg_data, telemetry.jpeg_length);
+      constexpr std::size_t kUploadChunkBytes = 1024U;
+      std::size_t written = 0U;
+      const std::uint32_t write_started_at = millis();
+      while (written < telemetry.jpeg_length && client.connected() &&
+             millis() - write_started_at <
+                 network_config::kHttpResponseTimeoutMs)
+      {
+        const std::size_t remaining = telemetry.jpeg_length - written;
+        const std::size_t chunk =
+            remaining < kUploadChunkBytes ? remaining : kUploadChunkBytes;
+        const std::size_t sent =
+            client.write(telemetry.jpeg_data + written, chunk);
+        if (sent == 0U)
+        {
+          delay(2);
+          continue;
+        }
+        written += sent;
+        delay(1);
+      }
       if (written != telemetry.jpeg_length)
       {
         client.stop();
-        Serial.println("Telemetry upload failed: incomplete JPEG write");
-        return false;
+        Serial.printf("Telemetry upload failed: wrote %u/%u JPEG bytes\n",
+                      static_cast<unsigned>(written),
+                      static_cast<unsigned>(telemetry.jpeg_length));
+        return ServerSyncResult::kWriteFailed;
       }
 
       char response_body[181]{};
@@ -1025,14 +1214,13 @@ namespace aiot
         Serial.printf("Telemetry uploaded: HTTP %d, %u JPEG bytes\n",
                       response_code,
                       static_cast<unsigned>(telemetry.jpeg_length));
-        return true;
+        return ServerSyncResult::kSuccess;
       }
 
       Serial.printf("Telemetry upload failed: HTTP %d (%s)\n", response_code,
                     response_body);
-      return false;
+      return ServerSyncResult::kHttpFailed;
     }
-#endif
 
     bool InitializeAiPipeline()
     {
@@ -1109,11 +1297,19 @@ namespace aiot
                     static_cast<unsigned>(g_classifier.arena_used_bytes()));
     }
 
+    const bool wifi_confirmed = ConfirmInitialWifiConnectivity();
+
     MaintainCameraWebServices();
-    SendNanoReadyState();
-    Serial.println("Cloud sync: Firebase/Firestore direct");
-    Serial.println(
-        "ESP ready (R 1); commands: T 1, F <plastic> <paper> <organic>, WIFI_RESET");
+    Serial.printf("Local sync: ESP JPEG -> http://%s:%u%s\n",
+                  network_config::kLocalServerHost,
+                  static_cast<unsigned>(network_config::kLocalServerPort),
+                  network_config::kLocalServerUploadPath);
+    Serial.println("Remote sync disabled; only the local Python server is used");
+    Serial.printf(
+        "ESP initialized; waiting for Nano H 1 probe; initial Wi-Fi=%s; "
+        "commands: T 1, "
+        "F <plastic> <paper> <organic>, WIFI_RESET\n",
+        wifi_confirmed ? "connected" : "offline");
   }
 
   void LoopFirmware()
@@ -1178,41 +1374,23 @@ namespace aiot
     {
       if (command_from_nano)
       {
-        FinishNanoTransaction(false);
+        FinishNanoTransaction(ServerSyncResult::kFillTimeout);
       }
       return;
     }
 
-    bool cloud_synced = false;
-    // Mot transaction chi thu cloud mot lan. Neu Wi-Fi dang mat thi bo qua
-    // ngay; khong chan ket qua AI va khong reconnect/POST lap trong transaction.
-    if (WiFi.status() != WL_CONNECTED)
+    ServerSyncResult sync_result = ServerSyncResult::kWifiUnavailable;
+    if (!EnsureWifiConnectedForUpload())
     {
-      Serial.println("Cloud sync skipped: Wi-Fi unavailable");
-    }
-    else if (!PrepareCloudSync())
-    {
-      Serial.println("Cloud sync skipped: Firebase authentication failed");
+      Serial.println("Local server sync skipped: Wi-Fi reconnect timed out");
     }
     else
     {
-      CloudRecognition cloud_recognition{};
-      cloud_recognition.jpeg_data = telemetry.jpeg_data;
-      cloud_recognition.jpeg_length = telemetry.jpeg_length;
-      cloud_recognition.waste_type = NanoResultWasteType(result);
-      cloud_recognition.confidence = telemetry.has_classification
-                                         ? telemetry.classification.confidence
-                                         : 0.0F;
-      cloud_recognition.has_classification = telemetry.has_classification;
-      const String image_url = UploadRecognitionImage(cloud_recognition);
-      cloud_synced = SyncRecognitionToCloud(
-          cloud_recognition, g_fill_levels, image_url);
-      SendFullAlertsIfNeeded(g_fill_levels, &g_alert_state,
-                             image_url.c_str());
+      sync_result = UploadRecognition(result, telemetry, g_fill_levels);
     }
     if (command_from_nano)
     {
-      FinishNanoTransaction(cloud_synced);
+      FinishNanoTransaction(sync_result);
     }
   }
 } // namespace aiot

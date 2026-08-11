@@ -49,7 +49,7 @@ const int TRIG_GIAY   = A3;
 const int ECHO_HUUCO  = A4; 
 const int TRIG_HUUCO  = A5; 
 
-const float BIN_HEIGHT_CM = 25.0; // Độ cao thiết kế của thùng rác (cm)
+const float BIN_HEIGHT_CM = 17.0; // Độ cao thiết kế của thùng rác (cm)
 // Cảm biến đặt trên nắp: chiều cao rác = chiều cao thùng - khoảng cách đo được.
 // Ngăn đầy khi chiều cao rác > 10 cm. Timeout cũng được xử lý như trạng thái đầy.
 const float FULL_THRESHOLD_HEIGHT_CM = 10.0;
@@ -73,9 +73,10 @@ const unsigned long POST_CLOSE_SETTLE_MS = 1000; // Chờ 1s sau khi đóng rồ
 
 // ==== Cấu hình Thời gian kiểm soát luồng ====
 const unsigned long READY_PROBE_INTERVAL_MS = 3000;
-const unsigned long UART_ACK_TIMEOUT_MS = 1500;
+const unsigned long TRIGGER_ACK_TIMEOUT_MS = 3500;
+const unsigned long FILL_ACK_TIMEOUT_MS = 2000;
 const unsigned long LABEL_TIMEOUT_MS = 25000;
-const unsigned long CLOUD_TIMEOUT_MS = 120000;
+const unsigned long SERVER_UPLOAD_TIMEOUT_MS = 30000;
 const unsigned long COOLDOWN_MS = 2000;       // Thời gian nghỉ giữa các lần hoạt động
 const unsigned long CLASSIFICATION_BLINK_MS = 3000; // LED ngăn được phân loại nhấp nháy trong 3 giây
 const unsigned long CLASSIFICATION_LED_TOGGLE_MS = 200;
@@ -97,7 +98,7 @@ enum State {
   STATE_WAIT_LABEL,
   STATE_NANO_PROCESSING,
   STATE_WAIT_FILL_ACK,
-  STATE_WAIT_CLOUD,
+  STATE_WAIT_SERVER,
   STATE_COOLDOWN
 };
 State currentState = STATE_WAIT_ESP_READY;
@@ -317,7 +318,7 @@ void loop() {
         Serial.print(F("[UART] Goi khong mong doi khi cho ACK T: "));
         Serial.println(line);
       }
-      else if (millis() - stateStartTime >= UART_ACK_TIMEOUT_MS) {
+      else if (millis() - stateStartTime >= TRIGGER_ACK_TIMEOUT_MS) {
         if (uartAttempts < MAX_UART_ATTEMPTS) {
           ++uartAttempts;
           Serial.print(F("[UART] Khong co ACK T, gui lai lan "));
@@ -358,7 +359,7 @@ void loop() {
     }
 
     case STATE_NANO_PROCESSING: {
-      if (hasLine) {
+      if (hasLine && strcmp_P(line, PSTR("A T")) != 0) {
         Serial.print(F("[UART] Goi den khi Nano dang xu ly: "));
         Serial.println(line);
       }
@@ -390,43 +391,74 @@ void loop() {
 
     case STATE_WAIT_FILL_ACK: {
       if (hasLine && strcmp_P(line, PSTR("A F")) == 0) {
-        Serial.println(F("[UART] ESP da nhan muc day; dang sync cloud..."));
+        Serial.println(F("[UART] ESP da nhan muc day; dang gui anh toi server local..."));
         stateStartTime = millis();
-        currentState = STATE_WAIT_CLOUD;
+        currentState = STATE_WAIT_SERVER;
       }
       else if (hasLine && line[0] == 'D' && line[1] == ' ' &&
                (line[2] == '0' || line[2] == '1') && line[3] == '\0') {
         Serial.println(strcmp_P(line, PSTR("D 1")) == 0
-                           ? F("[CLOUD] Dong bo thanh cong.")
-                           : F("[CLOUD] Dong bo that bai; ESP da ranh."));
+                           ? F("[SERVER] Da luu anh tren may.")
+                           : F("[SERVER] Gui anh that bai; ESP da ranh."));
         enterCooldown();
+      }
+      else if (hasLine && line[0] == 'E' && line[1] == ' ') {
+        Serial.print(F("[SERVER] ESP bao loi: "));
+        Serial.println(line + 2);
       }
       else if (hasLine) {
         Serial.print(F("[UART] Goi khong mong doi khi cho ACK F: "));
         Serial.println(line);
       }
-      else if (millis() - stateStartTime >= UART_ACK_TIMEOUT_MS) {
-        // F chi duoc gui mot lan. Khong lap POST do mat ACK.
-        Serial.println(F("[UART] Khong co ACK F; bo qua cloud, local van hoat dong."));
-        enterCooldown();
+      else if (millis() - stateStartTime >= FILL_ACK_TIMEOUT_MS) {
+        // Repeating F is safe: ESP uploads only after one accepted capture
+        // transaction, and a duplicate F never starts another capture/POST.
+        if (uartAttempts < MAX_UART_ATTEMPTS) {
+          ++uartAttempts;
+          Serial.print(F("[UART] Khong co ACK F, gui lai lan "));
+          Serial.println(uartAttempts);
+          resendFillDataToESP();
+          stateStartTime = millis();
+        }
+        else {
+          Serial.println(F("[UART] ESP khong ACK F; quay lai bat tay."));
+          setAiLedState(AI_LED_ERROR);
+          sendReadyProbe();
+          stateStartTime = millis();
+          currentState = STATE_WAIT_ESP_READY;
+        }
       }
       break;
     }
 
-    case STATE_WAIT_CLOUD: {
+    case STATE_WAIT_SERVER: {
       if (hasLine && line[0] == 'D' && line[1] == ' ' &&
           (line[2] == '0' || line[2] == '1') && line[3] == '\0') {
         Serial.println(strcmp_P(line, PSTR("D 1")) == 0
-                           ? F("[CLOUD] Cloudinary + Firestore thanh cong.")
-                           : F("[CLOUD] Sync loi; local van hoan tat."));
+                           ? F("[SERVER] Anh va du lieu da luu tren may.")
+                           : F("[SERVER] Gui loi; phan loai local van hoan tat."));
+        enterCooldown();
+      }
+      else if (hasLine && line[0] == 'E' && line[1] == ' ') {
+        Serial.print(F("[SERVER] ESP bao loi: "));
+        Serial.println(line + 2);
+      }
+      else if (hasLine && strcmp_P(line, PSTR("R 1")) == 0) {
+        // R 1 cannot be valid while the accepted T/F transaction is active.
+        // The ESP lost its in-RAM transaction state, normally after a reset or
+        // brownout, and then completed boot again.
+        Serial.println(
+            F("[UART] ESP da khoi dong lai khi dang gui server; transaction that bai."));
+        setAiLedState(AI_LED_ERROR);
+        lastClassificationSucceeded = false;
         enterCooldown();
       }
       else if (hasLine && strcmp_P(line, PSTR("A F")) != 0) {
-        Serial.print(F("[UART] Goi khong mong doi khi cho cloud: "));
+        Serial.print(F("[UART] Goi khong mong doi khi cho server: "));
         Serial.println(line);
       }
-      else if (!hasLine && millis() - stateStartTime >= CLOUD_TIMEOUT_MS) {
-        Serial.println(F("[!] Timeout cloud; bat tay lai voi ESP."));
+      else if (!hasLine && millis() - stateStartTime >= SERVER_UPLOAD_TIMEOUT_MS) {
+        Serial.println(F("[!] Timeout server local; bat tay lai voi ESP."));
         setAiLedState(AI_LED_ERROR);
         sendReadyProbe();
         stateStartTime = millis();
@@ -823,7 +855,7 @@ void sendReadyProbe() {
 
 // ==== PHÁT TÍN HIỆU KÍCH HOẠT CHỤP CẢNH (T 1) ====
 void sendTrigger() {
-  // LOADING bat/tat moi 1 giay trong luc ESP chup, inference va dong bo cloud.
+  // LOADING bat/tat moi 1 giay trong luc ESP chup, inference va gui server local.
   setAiLedState(AI_LED_LOADING);
 
 #if defined(TEST_MODE)
@@ -918,7 +950,7 @@ void processClassification(int code) {
     setAiLedState(AI_LED_ERROR);
   }
   else {
-    // Van giu LOADING cho den khi ESP ket thuc mot lan dong bo cloud.
+    // Van giu LOADING cho den khi ESP ket thuc mot lan gui server local.
     setAiLedState(AI_LED_LOADING);
     handleLabel(code);
   }
@@ -979,6 +1011,7 @@ void finishNanoProcessing() {
   // Nếu nắp đã mở, measureAllBins() vừa chạy sau khi đóng và chờ 1 giây.
   // Nếu không mở nắp, dùng lần đo ngay sau kết quả AI.
   Serial.println(F("-> Nano xu ly xong; gui dung tich 3 ngan..."));
+  uartAttempts = 1;
   sendFillDataToESP();
   stateStartTime = millis();
   currentState = STATE_WAIT_FILL_ACK;

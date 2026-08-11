@@ -22,12 +22,15 @@ const PERIOD_OPTIONS = [
 
 const NUMBER_FORMATTER = new Intl.NumberFormat('vi-VN');
 
-function isBinFull(bin: Bin): boolean {
-  return WASTE_TYPE_KEYS.some((key) => {
-    const fill = bin.compartments[key] ?? 0;
-    const threshold = bin.thresholds[key] ?? 80;
-    return fill >= threshold;
-  });
+function countFullCompartments(bins: Bin[]): number {
+  return bins.reduce((total, bin) => {
+    const fullInBin = WASTE_TYPE_KEYS.reduce((count, key) => {
+      const fill = bin.compartments[key] ?? 0;
+      const threshold = bin.thresholds[key] ?? 59;
+      return count + (fill >= threshold ? 1 : 0);
+    }, 0);
+    return total + fullInBin;
+  }, 0);
 }
 
 function wasteLabel(type: WasteTypeKey): string {
@@ -40,7 +43,7 @@ export const DashboardPage: React.FC<Props> = ({ bins, alerts, setPage }) => {
   const ranking = useRanking(bins, days);
 
   const onlineBins = useMemo(() => bins.filter((bin) => bin.online).length, [bins]);
-  const fullBins = useMemo(() => bins.filter(isBinFull).length, [bins]);
+  const fullCompartments = useMemo(() => countFullCompartments(bins), [bins]);
   const pendingAlerts = useMemo(
     () => alerts.filter((alert) => alert.status === 'pending').slice(0, 4),
     [alerts],
@@ -129,7 +132,7 @@ export const DashboardPage: React.FC<Props> = ({ bins, alerts, setPage }) => {
           </div>
           <div>
             <p className="dashboard-kpi__label">Cần xử lý</p>
-            <p className="dashboard-kpi__value">{NUMBER_FORMATTER.format(fullBins)}</p>
+            <p className="dashboard-kpi__value">{NUMBER_FORMATTER.format(fullCompartments)}</p>
             <p className="dashboard-kpi__meta">Ngăn đạt ngưỡng đầy</p>
           </div>
         </article>
@@ -165,7 +168,7 @@ export const DashboardPage: React.FC<Props> = ({ bins, alerts, setPage }) => {
           {bins.length === 0 ? (
             <div className="dashboard-empty-state">
               <i className="fa-solid fa-trash-can" aria-hidden="true" />
-              <p>Chưa có thiết bị trong Firestore.</p>
+              <p>Chưa có thiết bị trên server local.</p>
             </div>
           ) : (
             <div className="dashboard-device-grid">
@@ -194,20 +197,22 @@ export const DashboardPage: React.FC<Props> = ({ bins, alerts, setPage }) => {
 
                   {!bin.online ? (
                     <span className="dashboard-device-card__notice">
-                      Dữ liệu Firestore gần nhất
+                      Dữ liệu local gần nhất
                     </span>
                   ) : null}
 
                   <span className="dashboard-compartments">
                     {WASTE_TYPE_KEYS.map((key) => {
                       const value = bin.compartments[key] ?? 0;
-                      const threshold = bin.thresholds[key] ?? 80;
+                      const threshold = bin.thresholds[key] ?? 59;
                       const isOver = value >= threshold;
                       return (
                         <span className="dashboard-compartment" key={key}>
                           <span className="dashboard-compartment__meta">
                             <span>{wasteLabel(key)}</span>
-                            <strong className={isOver ? 'is-over' : ''}>{value}%</strong>
+                            <strong className={isOver ? 'is-over' : ''}>
+                              {value}%{isOver ? <span className="dashboard-full-label">Đầy</span> : null}
+                            </strong>
                           </span>
                           <span
                             className="dashboard-compartment__track"
@@ -245,7 +250,7 @@ export const DashboardPage: React.FC<Props> = ({ bins, alerts, setPage }) => {
             <div className="dashboard-empty-state dashboard-empty-state--chart">
               <i className="fa-solid fa-chart-pie" aria-hidden="true" />
               <strong>Chưa có lượt phân loại</strong>
-              <p>Biểu đồ sẽ cập nhật khi backend nhận dữ liệu trong {period.chartTitle.toLowerCase()}.</p>
+              <p>Biểu đồ sẽ cập nhật khi server local nhận dữ liệu trong {period.chartTitle.toLowerCase()}.</p>
             </div>
           ) : (
             <>

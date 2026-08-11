@@ -12,6 +12,7 @@ namespace aiot {
 namespace {
 
 constexpr char kTag[] = "aiot_camera";
+constexpr std::uint8_t kMaximumTimestampRejectedFrames = 3U;
 
 // Ai-Thinker ESP32-CAM + OV2640 pin map. GPIOs used here must not be reused by
 // servos or ultrasonic sensors; use a second controller for those peripherals.
@@ -159,6 +160,7 @@ CameraFrameLease CameraAdapter::Capture(Status* const status,
 
 CameraFrameLease CameraAdapter::CaptureFresh(
     Status* const status, const std::uint8_t discard_frames,
+    const std::uint64_t not_before_us,
     const std::uint32_t timeout_ms) noexcept {
   if (status == nullptr) {
     return CameraFrameLease{};
@@ -183,15 +185,37 @@ CameraFrameLease CameraAdapter::CaptureFresh(
     esp_camera_fb_return(queued_frame);
   }
 
-  camera_fb_t* const fresh_frame = esp_camera_fb_get();
-  if (fresh_frame == nullptr) {
-    xSemaphoreGive(mutex_);
-    *status = Status::kCameraCaptureFailed;
-    return CameraFrameLease{};
+  for (std::uint8_t rejected = 0U;
+       rejected <= kMaximumTimestampRejectedFrames; ++rejected) {
+    camera_fb_t* const fresh_frame = esp_camera_fb_get();
+    if (fresh_frame == nullptr) {
+      xSemaphoreGive(mutex_);
+      *status = Status::kCameraCaptureFailed;
+      return CameraFrameLease{};
+    }
+
+    const std::uint64_t frame_timestamp_us =
+        static_cast<std::uint64_t>(fresh_frame->timestamp.tv_sec) *
+            1000000ULL +
+        static_cast<std::uint64_t>(fresh_frame->timestamp.tv_usec);
+    if (not_before_us == 0U || frame_timestamp_us >= not_before_us) {
+      *status = Status::kOk;
+      return CameraFrameLease{fresh_frame, mutex_};
+    }
+
+    ESP_LOGW(kTag,
+             "Rejected stale frame timestamp=%llu, required >=%llu "
+             "(attempt %u/%u)",
+             static_cast<unsigned long long>(frame_timestamp_us),
+             static_cast<unsigned long long>(not_before_us),
+             static_cast<unsigned>(rejected + 1U),
+             static_cast<unsigned>(kMaximumTimestampRejectedFrames + 1U));
+    esp_camera_fb_return(fresh_frame);
   }
 
-  *status = Status::kOk;
-  return CameraFrameLease{fresh_frame, mutex_};
+  xSemaphoreGive(mutex_);
+  *status = Status::kCameraCaptureFailed;
+  return CameraFrameLease{};
 }
 
 Status CameraAdapter::MakeImageView(const camera_fb_t& frame,

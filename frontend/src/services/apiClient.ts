@@ -1,5 +1,3 @@
-import { getAuth } from 'firebase/auth';
-
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
 
 export class ApiError extends Error {
@@ -14,27 +12,11 @@ export class ApiError extends Error {
   }
 }
 
-async function getAuthHeader(): Promise<Record<string, string>> {
-  const user = getAuth().currentUser;
-  if (!user) {
-    return {};
-  }
-  // Firebase tự refresh khi token gần hết hạn; không ép refresh ở mọi request.
-  const token = await user.getIdToken();
-  return { Authorization: `Bearer ${token}` };
-}
-
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  // GET của backend là public. Chỉ lấy Firebase ID Token cho request ghi để
-  // không tạo waterfall Firebase Auth -> Backend trong mỗi lần polling.
-  const method = options.method ?? 'GET';
-  const authHeader = method === 'GET' ? {} : await getAuthHeader();
-
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      ...authHeader,
       ...(options.headers || {}),
     },
   });
