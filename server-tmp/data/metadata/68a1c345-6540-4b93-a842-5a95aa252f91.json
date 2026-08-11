@@ -1,0 +1,26 @@
+{
+  "id": "68a1c345-6540-4b93-a842-5a95aa252f91",
+  "received_at": "2026-08-08T08:30:16.212709Z",
+  "device_id": "esp32cam-01",
+  "result_code": 3,
+  "waste_class": "organic",
+  "confidence": 0.433594,
+  "probabilities": {
+    "paper": 0.257812,
+    "plastic": 0.308594,
+    "organic": 0.433594
+  },
+  "inference_us": 383055,
+  "image_width": 320,
+  "image_height": 240,
+  "image_bytes": 7429,
+  "model_sha256": "851054bd0256a3173aa69a2dee733f059d14651271e684be06bc750cf8564253",
+  "firmware_version": "v5.0-local-python-server",
+  "ai_model_version": "tinycnn-v9-balanced-esp-contract",
+  "fill_levels": {
+    "plastic": 17,
+    "paper": 11,
+    "organic": 11
+  },
+  "image_url": "/api/v1/detections/68a1c345-6540-4b93-a842-5a95aa252f91/image"
+}

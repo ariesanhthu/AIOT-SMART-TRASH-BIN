@@ -1,0 +1,13 @@
+{
+  "configs": {
+    "esp32cam-01": {
+      "maintenanceMode": false,
+      "thresholds": {
+        "organic": 0.99,
+        "paper": 0.99,
+        "plastic": 0.99
+      }
+    }
+  },
+  "resolved_alerts": {}
+}
