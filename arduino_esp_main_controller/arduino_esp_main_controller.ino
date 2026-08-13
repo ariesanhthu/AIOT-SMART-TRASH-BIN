@@ -51,8 +51,8 @@ const int TRIG_HUUCO  = A5;
 
 const float BIN_HEIGHT_CM = 17.0; // Độ cao thiết kế của thùng rác (cm)
 // Cảm biến đặt trên nắp: chiều cao rác = chiều cao thùng - khoảng cách đo được.
-// Ngăn đầy khi chiều cao rác > 10 cm. Timeout cũng được xử lý như trạng thái đầy.
-const float FULL_THRESHOLD_HEIGHT_CM = 10.0;
+// Ngưỡng đầy mặc định tương đương 10/17 cm ~= 59%, rồi ESP cập nhật từ dashboard.
+const byte DEFAULT_FULL_THRESHOLD_PERCENT = 59;
 
 // ==== Cấu hình 4 LED Báo Hiệu (12, 6, 5, 4) ====
 const int LED_NHUA  = 12;  // LED ngăn Nhựa
@@ -131,17 +131,21 @@ bool triggerVerboseMonitor = false;
 bool lastTriggerEchoBefore = false;
 bool lastTriggerEchoAfter = false;
 bool lastClassificationSucceeded = false;
+bool maintenanceMode = false;
 bool binFullNhua = false;
 bool binFullGiay = false;
 bool binFullHuuCo = false;
 bool postCloseMeasurementPending = false;
 Servo *activeServo = NULL;
 char pendingFillMessage[16] = "";
-char uartRxBuffer[16] = "";
+char uartRxBuffer[24] = "";
 byte uartRxLength = 0;
 
 // Biến lưu độ đầy của 3 ngăn
 int fillNhua = 0, fillGiay = 0, fillHuuCo = 0;
+byte thresholdNhua = DEFAULT_FULL_THRESHOLD_PERCENT;
+byte thresholdGiay = DEFAULT_FULL_THRESHOLD_PERCENT;
+byte thresholdHuuCo = DEFAULT_FULL_THRESHOLD_PERCENT;
 
 // Khai báo các hàm
 long readUltrasonicDistance(int trigPin, int echoPin);
@@ -149,9 +153,11 @@ long readTriggerUltrasonicDistance();
 void printTriggerSensorStatus(long distance, bool forcePrint);
 int calculateFillPercentageFromDistance(long distance);
 int measureBin(int trigPin, int echoPin, bool *isFull,
-               const __FlashStringHelper* name);
+               const __FlashStringHelper* name, byte thresholdPercent);
 void measureAllBins();
 void updateBinStatusLeds();
+bool parseConfigLine(const char *line);
+void applyEspConfig(const char *line);
 void sendFillDataToESP();
 void resendFillDataToESP();
 void updateTriggerSensor();
@@ -259,8 +265,12 @@ void loop() {
     lastFillCheckTime = millis();
   }
 
-  char line[16] = "";
+  char line[24] = "";
   const bool hasLine = readEspLine(line, sizeof(line));
+  if (hasLine && parseConfigLine(line)) {
+    applyEspConfig(line);
+    return;
+  }
 
   switch (currentState) {
 
@@ -295,7 +305,13 @@ void loop() {
         Serial.println(line);
       }
 
-      if (((pendingTrigger && triggerSensorOccupied) || manualTriggerPending) &&
+      if (maintenanceMode) {
+        pendingTrigger = false;
+        manualTriggerPending = false;
+      }
+
+      if (!maintenanceMode &&
+          ((pendingTrigger && triggerSensorOccupied) || manualTriggerPending) &&
           activeBlinkPin == -1) {
         startPendingTrigger();
       }
@@ -777,7 +793,7 @@ int calculateFillPercentageFromDistance(long distance) {
 
 // ==== ĐO MỘT NGĂN VÀ SUY RA TRẠNG THÁI ĐẦY ====
 int measureBin(int trigPin, int echoPin, bool *isFull,
-               const __FlashStringHelper* name) {
+               const __FlashStringHelper* name, byte thresholdPercent) {
   const long distance = readUltrasonicDistance(trigPin, echoPin);
   if (distance <= 0) {
     *isFull = true;
@@ -787,20 +803,16 @@ int measureBin(int trigPin, int echoPin, bool *isFull,
     return 100;
   }
 
-  float filledHeight = BIN_HEIGHT_CM - (float)distance;
-  if (filledHeight < 0.0) filledHeight = 0.0;
-  if (filledHeight > BIN_HEIGHT_CM) filledHeight = BIN_HEIGHT_CM;
-  *isFull = filledHeight > FULL_THRESHOLD_HEIGHT_CM;
-
   const int fillPercent = calculateFillPercentageFromDistance(distance);
+  *isFull = fillPercent >= thresholdPercent;
   Serial.print(F("[BIN] "));
   Serial.print(name);
   Serial.print(F(": distance="));
   Serial.print(distance);
-  Serial.print(F("cm height="));
-  Serial.print(filledHeight, 1);
   Serial.print(F("cm fill="));
   Serial.print(fillPercent);
+  Serial.print(F("% threshold="));
+  Serial.print(thresholdPercent);
   Serial.print(F("% state="));
   Serial.println(*isFull ? F("FULL LED=ON") : F("AVAILABLE LED=LOW"));
   return fillPercent;
@@ -808,9 +820,12 @@ int measureBin(int trigPin, int echoPin, bool *isFull,
 
 // ==== ĐO ĐỘ ĐẦY CẢ 3 NGĂN ====
 void measureAllBins() {
-  fillNhua = measureBin(TRIG_NHUA, ECHO_NHUA, &binFullNhua, F("NHUA"));
-  fillGiay = measureBin(TRIG_GIAY, ECHO_GIAY, &binFullGiay, F("GIAY"));
-  fillHuuCo = measureBin(TRIG_HUUCO, ECHO_HUUCO, &binFullHuuCo, F("HUU CO"));
+  fillNhua = measureBin(TRIG_NHUA, ECHO_NHUA, &binFullNhua, F("NHUA"),
+                        thresholdNhua);
+  fillGiay = measureBin(TRIG_GIAY, ECHO_GIAY, &binFullGiay, F("GIAY"),
+                        thresholdGiay);
+  fillHuuCo = measureBin(TRIG_HUUCO, ECHO_HUUCO, &binFullHuuCo, F("HUU CO"),
+                         thresholdHuuCo);
   updateBinStatusLeds();
 }
 
@@ -842,6 +857,40 @@ void resendFillDataToESP() {
 #if !defined(TEST_MODE)
   espSerial.println(pendingFillMessage);
 #endif
+}
+
+bool parseConfigLine(const char *line) {
+  if (line == NULL) return false;
+  return line[0] == 'G' && line[1] == ' ';
+}
+
+void applyEspConfig(const char *line) {
+  unsigned plastic = 0;
+  unsigned paper = 0;
+  unsigned organic = 0;
+  unsigned maintenance = 0;
+  char extra = '\0';
+  if (sscanf(line, "G %u %u %u %u %c", &plastic, &paper, &organic,
+             &maintenance, &extra) != 4 ||
+      plastic > 100 || paper > 100 || organic > 100 || maintenance > 1) {
+    Serial.print(F("[CONFIG] Goi config khong hop le: "));
+    Serial.println(line);
+    return;
+  }
+
+  thresholdNhua = (byte)plastic;
+  thresholdGiay = (byte)paper;
+  thresholdHuuCo = (byte)organic;
+  maintenanceMode = maintenance == 1;
+  Serial.print(F("[CONFIG] Dashboard -> threshold NHUA/GIAY/HUUCO="));
+  Serial.print(thresholdNhua);
+  Serial.print('/');
+  Serial.print(thresholdGiay);
+  Serial.print('/');
+  Serial.print(thresholdHuuCo);
+  Serial.print(F("% maintenance="));
+  Serial.println(maintenanceMode ? F("ON") : F("OFF"));
+  measureAllBins();
 }
 
 void sendReadyProbe() {
@@ -963,6 +1012,11 @@ void processClassification(int code) {
 
 // ==== XỬ LÝ KIỂM TRA ĐẦY & MỞ NẮP CHO TỪNG LOẠI RÁC ====
 void handleLabel(int code) {
+  if (maintenanceMode) {
+    Serial.println(F("[CONFIG] Maintenance ON -> khong mo nap."));
+    return;
+  }
+
   if (code == 1) {
     // Dùng snapshot đã đo ngay lúc trigger AI.
     Serial.print(F("-> Ngan Nhua: ")); Serial.print(fillNhua); Serial.println(F("%"));
