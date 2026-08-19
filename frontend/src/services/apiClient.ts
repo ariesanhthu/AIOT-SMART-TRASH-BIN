@@ -13,10 +13,15 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const method = options.method ?? 'GET';
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
+    // Device fill levels are live telemetry. Never satisfy GET polling from
+    // the browser HTTP cache.
+    cache: method === 'GET' ? 'no-store' : options.cache,
     headers: {
       'Content-Type': 'application/json',
+      ...(method === 'GET' ? { 'Cache-Control': 'no-cache' } : {}),
       ...(options.headers || {}),
     },
   });

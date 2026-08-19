@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { Bin } from '../types/api';
 import { WASTE_TYPES, WASTE_TYPE_KEYS } from '../constants/wasteTypes';
 import { useClassifyHistory } from '../hooks/useClassifyHistory';
+import { getConfiguredThreshold } from '../utils/thresholds';
 
 interface Props {
   bins: Bin[];
@@ -59,8 +60,8 @@ export const BinDetailPage: React.FC<Props> = ({ bins }) => {
               const v = bin.compartments[k];
               if (v === undefined) return null;
               const wt = WASTE_TYPES[k];
-              const thresh = bin.thresholds[k] ?? 59;
-              const overThresh = v >= thresh;
+              const thresh = getConfiguredThreshold(bin.thresholds, k);
+              const overThresh = thresh !== null && v >= thresh;
 
               return (
                 <div key={k}>
@@ -76,7 +77,9 @@ export const BinDetailPage: React.FC<Props> = ({ bins }) => {
                   </div>
                   <div className="flex justify-between mt-1" style={{ fontSize: '11px', color: 'var(--outline)' }}>
                     <span>0%</span>
-                    <span style={{ color: overThresh ? 'var(--error)' : 'var(--outline)' }}>Ngưỡng báo: {thresh}%</span>
+                    <span style={{ color: overThresh ? 'var(--error)' : 'var(--outline)' }}>
+                      {thresh === null ? 'Chưa cấu hình ngưỡng' : `Ngưỡng báo: ${thresh}%`}
+                    </span>
                     <span>100%</span>
                   </div>
                 </div>

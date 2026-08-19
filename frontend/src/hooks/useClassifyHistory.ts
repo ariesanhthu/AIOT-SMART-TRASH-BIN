@@ -7,11 +7,7 @@ export function useClassifyHistory(deviceId: string | null) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!deviceId) {
-      setRows([]);
-      setLoading(false);
-      return;
-    }
+    if (!deviceId) return;
 
     let cancelled = false;
     const load = (showLoading: boolean) => {
@@ -25,13 +21,17 @@ export function useClassifyHistory(deviceId: string | null) {
         });
     };
 
-    load(true);
+    const initialLoad = window.setTimeout(() => load(true), 0);
     const timer = window.setInterval(() => load(false), 5000);
     return () => {
       cancelled = true;
+      window.clearTimeout(initialLoad);
       window.clearInterval(timer);
     };
   }, [deviceId]);
 
-  return { rows, loading };
+  return {
+    rows: deviceId ? rows : [],
+    loading: deviceId ? loading : false,
+  };
 }

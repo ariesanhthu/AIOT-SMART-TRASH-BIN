@@ -1,0 +1,76 @@
+{
+  "schema_version": 2,
+  "created_utc": "2026-08-14T03:03:11.615307+00:00",
+  "purpose": "V10 combined dataset: prepared V9 plus all audited augmented V9 files",
+  "counts": {
+    "train": {
+      "paper": 225,
+      "plastic": 225,
+      "organic": 225
+    },
+    "validation": {
+      "paper": 13,
+      "plastic": 13,
+      "organic": 13
+    },
+    "test": {
+      "paper": 13,
+      "plastic": 13,
+      "organic": 13
+    }
+  },
+  "total": 753,
+  "origin_counts": {
+    "augmented_v9": 486,
+    "prepared_v9": 267
+  },
+  "kind_counts": {
+    "generated_augmentation": 228,
+    "original": 303,
+    "existing_augmentation": 131,
+    "v9_augmentation": 91
+  },
+  "exact_duplicates": 0,
+  "source_group_leakage": 0,
+  "source_manifest_rows": 486,
+  "source_location_corrections": [
+    {
+      "manifest_path": "train/organic/organic_train_aug_006_sensor_noise.jpg",
+      "actual_source_path": "validation/organic/organic_train_aug_006_sensor_noise.jpg"
+    },
+    {
+      "manifest_path": "train/organic/organic_train_aug_026_cool_cast.jpg",
+      "actual_source_path": "test/organic/organic_train_aug_026_cool_cast.jpg"
+    },
+    {
+      "manifest_path": "train/organic/organic_train_aug_054_cool_cast.jpg",
+      "actual_source_path": "test/organic/organic_train_aug_054_cool_cast.jpg"
+    },
+    {
+      "manifest_path": "train/paper/paper_train_original_007.jpg",
+      "actual_source_path": "test/paper/paper_train_original_007.jpg"
+    },
+    {
+      "manifest_path": "train/paper/paper_train_original_015.jpg",
+      "actual_source_path": "test/paper/paper_train_original_015.jpg"
+    },
+    {
+      "manifest_path": "train/plastic/plastic_train_aug_012_cool_cast.jpg",
+      "actual_source_path": "test/plastic/plastic_train_aug_012_cool_cast.jpg"
+    },
+    {
+      "manifest_path": "train/plastic/plastic_train_existing_aug_002.jpg",
+      "actual_source_path": "test/plastic/plastic_train_existing_aug_002.jpg"
+    },
+    {
+      "manifest_path": "train/plastic/plastic_train_existing_aug_045.jpg",
+      "actual_source_path": "test/plastic/plastic_train_existing_aug_045.jpg"
+    },
+    {
+      "manifest_path": "validation/organic/organic_validation_original_006.jpg",
+      "actual_source_path": "train/organic/organic_validation_original_006.jpg"
+    }
+  ],
+  "manifest_sha256": "6ea58364bfa6a7f617e62b24832fb1cd6a7b4557a2ac6c7dafb1b3ed34435ca2",
+  "note": "Nine physical source files did not match their audited manifest paths; they were located by filename+SHA256 and merged using the audited manifest split."
+}

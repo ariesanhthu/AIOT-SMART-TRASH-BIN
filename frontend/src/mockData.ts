@@ -17,11 +17,3 @@ export const REWARDS = [
   { name: "Lớp 2C", points: 310 },
   { name: "Lớp 5A", points: 265 },
 ];
-
-export const THRESHOLDS: Record<string, Record<string, number>> = {
-  A1: { organic: 80, recycle: 85, inorganic: 90 },
-  A2: { organic: 80, recycle: 85, inorganic: 90 },
-  B1: { organic: 85, recycle: 88, inorganic: 92 },
-  B2: { organic: 80, recycle: 85, inorganic: 90 },
-  C1: { organic: 85, recycle: 90, inorganic: 92 },
-};

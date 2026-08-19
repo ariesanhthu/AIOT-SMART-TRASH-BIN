@@ -1,6 +1,7 @@
 import type { DeviceResponseDto, Bin, BinThresholds } from '../types/api';
 import type { WasteTypeKey } from '../constants/wasteTypes';
 import { WASTE_TYPE_KEYS } from '../constants/wasteTypes';
+import { normalizeBackendThreshold } from '../utils/thresholds';
 
 export function deviceResponseToBin(dto: DeviceResponseDto): Bin {
   const compartments: Partial<Record<WasteTypeKey, number>> = {};
@@ -10,7 +11,10 @@ export function deviceResponseToBin(dto: DeviceResponseDto): Bin {
     const c = dto.compartments[key];
     if (c) {
       compartments[key] = c.fillPercent ?? 0;
-      if (c.threshold != null) thresholds[key] = normalizeThreshold(c.threshold);
+      if (c.threshold != null) {
+        const threshold = normalizeBackendThreshold(c.threshold);
+        if (threshold !== null) thresholds[key] = threshold;
+      }
     }
   }
 
@@ -35,7 +39,8 @@ export function deviceResponseToThresholds(dto: DeviceResponseDto): Partial<Reco
   for (const key of WASTE_TYPE_KEYS) {
     const c = dto.compartments[key];
     if (c && c.threshold != null) {
-      thresholds[key] = normalizeThreshold(c.threshold);
+      const threshold = normalizeBackendThreshold(c.threshold);
+      if (threshold !== null) thresholds[key] = threshold;
     }
   }
   return thresholds;
@@ -55,6 +60,3 @@ function isRecentlySeen(lastSeenAt: string | null, thresholdMs = 5 * 60 * 1000):
   return diff >= 0 && diff <= thresholdMs;
 }
 
-function normalizeThreshold(value: number): number {
-  return value <= 1 ? Math.round(value * 100) : value;
-}

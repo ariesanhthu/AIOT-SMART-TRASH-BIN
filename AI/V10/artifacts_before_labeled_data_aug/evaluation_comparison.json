@@ -1,0 +1,162 @@
+{
+  "created_utc": "2026-08-14T03:05:39.972716+00:00",
+  "labels": [
+    "paper",
+    "plastic",
+    "organic"
+  ],
+  "preprocessing": "V10 deterministic ESP-TRASH-V3 128x96 contract for both models",
+  "same_images_for_float_and_int8": true,
+  "results": {
+    "validation": {
+      "images": 39,
+      "float": {
+        "accuracy": 0.9230769230769231,
+        "macro_recall": 0.923076923076923,
+        "macro_precision": 0.9285714285714285,
+        "macro_f1": 0.9228395061728395,
+        "minimum_class_recall": 0.8461538461538461,
+        "recall_per_class": [
+          1.0,
+          0.9230769230769231,
+          0.8461538461538461
+        ],
+        "precision_per_class": [
+          0.9285714285714286,
+          0.8571428571428571,
+          1.0
+        ],
+        "confusion_matrix": [
+          [
+            13,
+            0,
+            0
+          ],
+          [
+            1,
+            12,
+            0
+          ],
+          [
+            0,
+            2,
+            11
+          ]
+        ]
+      },
+      "int8": {
+        "accuracy": 0.9487179487179487,
+        "macro_recall": 0.9487179487179488,
+        "macro_precision": 0.9505494505494506,
+        "macro_f1": 0.9486799620132954,
+        "minimum_class_recall": 0.9230769230769231,
+        "recall_per_class": [
+          1.0,
+          0.9230769230769231,
+          0.9230769230769231
+        ],
+        "precision_per_class": [
+          0.9285714285714286,
+          0.9230769230769231,
+          1.0
+        ],
+        "confusion_matrix": [
+          [
+            13,
+            0,
+            0
+          ],
+          [
+            1,
+            12,
+            0
+          ],
+          [
+            0,
+            1,
+            12
+          ]
+        ]
+      },
+      "accuracy_delta_int8_minus_float": 0.02564102564102555,
+      "prediction_disagreements": 1,
+      "maximum_probability_absolute_error": 0.0962030291557312,
+      "mean_probability_absolute_error": 0.012248236685991287
+    },
+    "test": {
+      "images": 39,
+      "float": {
+        "accuracy": 0.9487179487179487,
+        "macro_recall": 0.9487179487179488,
+        "macro_precision": 0.9487179487179488,
+        "macro_f1": 0.9487179487179488,
+        "minimum_class_recall": 0.9230769230769231,
+        "recall_per_class": [
+          0.9230769230769231,
+          1.0,
+          0.9230769230769231
+        ],
+        "precision_per_class": [
+          0.9230769230769231,
+          1.0,
+          0.9230769230769231
+        ],
+        "confusion_matrix": [
+          [
+            12,
+            0,
+            1
+          ],
+          [
+            0,
+            13,
+            0
+          ],
+          [
+            1,
+            0,
+            12
+          ]
+        ]
+      },
+      "int8": {
+        "accuracy": 0.9487179487179487,
+        "macro_recall": 0.9487179487179488,
+        "macro_precision": 0.9487179487179488,
+        "macro_f1": 0.9487179487179488,
+        "minimum_class_recall": 0.9230769230769231,
+        "recall_per_class": [
+          0.9230769230769231,
+          1.0,
+          0.9230769230769231
+        ],
+        "precision_per_class": [
+          0.9230769230769231,
+          1.0,
+          0.9230769230769231
+        ],
+        "confusion_matrix": [
+          [
+            12,
+            0,
+            1
+          ],
+          [
+            0,
+            13,
+            0
+          ],
+          [
+            1,
+            0,
+            12
+          ]
+        ]
+      },
+      "accuracy_delta_int8_minus_float": 0.0,
+      "prediction_disagreements": 0,
+      "maximum_probability_absolute_error": 0.1386536955833435,
+      "mean_probability_absolute_error": 0.007309961598366499
+    }
+  }
+}

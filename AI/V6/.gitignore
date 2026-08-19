@@ -1,7 +1,0 @@
-dataset_prepared/
-dataset_indexed/
-artifacts/
-artifacts_tuned/
-charts/
-esp32_model/
-*.exe

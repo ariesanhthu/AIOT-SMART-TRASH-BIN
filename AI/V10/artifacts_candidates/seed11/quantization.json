@@ -1,0 +1,144 @@
+{
+  "file": "model_int8.tflite",
+  "size_bytes": 102880,
+  "sha256": "f6b766146ca3707eef3a3f1ef6538237d42c26f248e07575cb307305b88c8f4f",
+  "full_integer": true,
+  "input": {
+    "name": "serving_default_image:0",
+    "shape": [
+      1,
+      96,
+      128,
+      3
+    ],
+    "dtype": "int8",
+    "quantization": {
+      "scale": 0.003921568859368563,
+      "zero_point": -128
+    }
+  },
+  "output": {
+    "name": "StatefulPartitionedCall_1:0",
+    "shape": [
+      1,
+      3
+    ],
+    "dtype": "int8",
+    "quantization": {
+      "scale": 0.00390625,
+      "zero_point": -128
+    }
+  },
+  "operators": [
+    "CONV_2D",
+    "CONV_2D",
+    "CONV_2D",
+    "CONV_2D",
+    "CONV_2D",
+    "MEAN",
+    "FULLY_CONNECTED",
+    "SOFTMAX"
+  ],
+  "unique_operators": [
+    "CONV_2D",
+    "FULLY_CONNECTED",
+    "MEAN",
+    "SOFTMAX"
+  ],
+  "float_tensors": [],
+  "metrics": {
+    "validation": {
+      "accuracy": 0.9487179487179487,
+      "macro_recall": 0.9487179487179488,
+      "macro_precision": 0.9555555555555556,
+      "macro_f1": 0.9484126984126985,
+      "minimum_class_recall": 0.8461538461538461,
+      "recall_per_class": [
+        0.8461538461538461,
+        1.0,
+        1.0
+      ],
+      "precision_per_class": [
+        1.0,
+        0.8666666666666667,
+        1.0
+      ],
+      "confusion_matrix": [
+        [
+          11,
+          2,
+          0
+        ],
+        [
+          0,
+          13,
+          0
+        ],
+        [
+          0,
+          0,
+          13
+        ]
+      ]
+    },
+    "test": {
+      "accuracy": 0.8717948717948718,
+      "macro_recall": 0.8717948717948718,
+      "macro_precision": 0.8863636363636364,
+      "macro_f1": 0.873639846743295,
+      "minimum_class_recall": 0.7692307692307693,
+      "recall_per_class": [
+        0.9230769230769231,
+        0.9230769230769231,
+        0.7692307692307693
+      ],
+      "precision_per_class": [
+        0.75,
+        1.0,
+        0.9090909090909091
+      ],
+      "confusion_matrix": [
+        [
+          12,
+          0,
+          1
+        ],
+        [
+          1,
+          12,
+          0
+        ],
+        [
+          3,
+          0,
+          10
+        ]
+      ]
+    }
+  },
+  "self_test": {
+    "multiplier": 191,
+    "offset": 7,
+    "raw_output": [
+      -128,
+      -128,
+      127
+    ],
+    "expected_class_index": 2,
+    "minimum_raw_margin": 255
+  },
+  "representative_dataset": {
+    "split": "train",
+    "images": 740,
+    "per_class": {
+      "paper": 251,
+      "plastic": 251,
+      "organic": 238
+    },
+    "range_anchors": [
+      0.0,
+      1.0
+    ],
+    "stochastic_augmentation": false
+  }
+}

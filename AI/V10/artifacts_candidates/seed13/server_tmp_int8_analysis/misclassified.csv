@@ -1,0 +1,7 @@
+path,sha256,truth,float_prediction,int8_prediction,float_correct,int8_correct,int8_confidence,training_exposure,int8_paper,int8_plastic,int8_organic
+paper/ae41156a-aa81-46b1-97d7-fb8f22cfdad6.jpg,25d10179c0879b97415e1508b033bc8ab8da1ed515a7b5761d5aadc84614c568,paper,plastic,plastic,False,False,0.99609375,unseen,0.0,0.99609375,0.0
+plastic/5136d6c4-9577-4d3e-974a-5fe044dcc39b.jpg,353ee90cb66aa7b97de0135bbae303226e7574f6a359de2c7c38a48e39f8b33b,plastic,paper,paper,False,False,0.66796875,heldout_test,0.66796875,0.328125,0.00390625
+plastic/7f459649-2df5-4551-b2e5-8010e3e69531.jpg,926a2e61397ee622ff97cbf8c78591353626ee95ef6ac74900f0286764755757,plastic,paper,paper,False,False,0.99609375,heldout_validation,0.99609375,0.0,0.0
+plastic/9aacf7c8-789a-4f9e-ae6c-d60aaccc9f60.jpg,dda76e7c996631e1381d7d936d436a9b375bba2972ab651b97f08ad54c2b35dd,plastic,paper,paper,False,False,0.98828125,heldout_validation,0.98828125,0.0078125,0.00390625
+plastic/a6cbcabd-830a-4a57-aa0c-8e617d83193d.jpg,85ca5a64a18c53165d10ae568c79c008ccc5b2e73b2855616b6c0b416fd465d3,plastic,paper,paper,False,False,0.90625,heldout_test,0.90625,0.08984375,0.00390625
+plastic/be1a672c-873b-4117-b7af-daa4599b8390.jpg,12518badcdb61e3cbe99e5522d43096715607a1a519b5ef82ac301a1e468a25d,plastic,paper,paper,False,False,0.95703125,heldout_validation,0.95703125,0.04296875,0.0

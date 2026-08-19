@@ -1,0 +1,26 @@
+{
+  "configs": {
+    "esp32cam-01": {
+      "maintenanceMode": false,
+      "thresholds": {
+        "organic": 0.62,
+        "paper": 0.64,
+        "plastic": 0.86
+      }
+    }
+  },
+  "resolved_alerts": {
+    "211fb8cf-5c52-4d08-b5eb-1d775a89d1c8:organic": {
+      "resolvedAt": "2026-08-19T08:42:42.974306+00:00",
+      "resolvedBy": "local-admin"
+    },
+    "8fa7c32f-9e9b-4354-a0d4-4a8b9f2d1ebc:plastic": {
+      "resolvedAt": "2026-08-19T08:42:44.356240+00:00",
+      "resolvedBy": "local-admin"
+    },
+    "9d3b8da3-f487-4a7d-83e2-ca7f15eef1fb:paper": {
+      "resolvedAt": "2026-08-19T08:42:45.383266+00:00",
+      "resolvedBy": "local-admin"
+    }
+  }
+}

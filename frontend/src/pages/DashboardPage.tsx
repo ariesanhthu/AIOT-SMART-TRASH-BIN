@@ -5,6 +5,7 @@ import { useRanking } from '../hooks/useRanking';
 import { useTodaySummary } from '../hooks/useTodaySummary';
 import type { AlertRow, Bin } from '../types/api';
 import { WASTE_TYPE_KEYS, WASTE_TYPES, type WasteTypeKey } from '../constants/wasteTypes';
+import { getConfiguredThreshold } from '../utils/thresholds';
 
 ChartJS.register(ArcElement, Tooltip);
 
@@ -26,8 +27,8 @@ function countFullCompartments(bins: Bin[]): number {
   return bins.reduce((total, bin) => {
     const fullInBin = WASTE_TYPE_KEYS.reduce((count, key) => {
       const fill = bin.compartments[key] ?? 0;
-      const threshold = bin.thresholds[key] ?? 59;
-      return count + (fill >= threshold ? 1 : 0);
+      const threshold = getConfiguredThreshold(bin.thresholds, key);
+      return count + (threshold !== null && fill >= threshold ? 1 : 0);
     }, 0);
     return total + fullInBin;
   }, 0);
@@ -204,8 +205,8 @@ export const DashboardPage: React.FC<Props> = ({ bins, alerts, setPage }) => {
                   <span className="dashboard-compartments">
                     {WASTE_TYPE_KEYS.map((key) => {
                       const value = bin.compartments[key] ?? 0;
-                      const threshold = bin.thresholds[key] ?? 59;
-                      const isOver = value >= threshold;
+                      const threshold = getConfiguredThreshold(bin.thresholds, key);
+                      const isOver = threshold !== null && value >= threshold;
                       return (
                         <span className="dashboard-compartment" key={key}>
                           <span className="dashboard-compartment__meta">

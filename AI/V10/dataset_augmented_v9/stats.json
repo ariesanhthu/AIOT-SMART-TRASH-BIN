@@ -1,0 +1,199 @@
+{
+  "schema_version": 1,
+  "created_utc": "2026-08-13T06:58:27+00:00",
+  "seed": 20260813,
+  "labels": [
+    "paper",
+    "plastic",
+    "organic"
+  ],
+  "class_to_index": {
+    "paper": 0,
+    "plastic": 1,
+    "organic": 2
+  },
+  "input_images_reviewed": 259,
+  "input_images_used": 258,
+  "excluded_after_review": [
+    {
+      "relative_path": "paper/ae41156a-aa81-46b1-97d7-fb8f22cfdad6.jpg",
+      "label": "paper",
+      "reason": "probable plastic bottle mislabeled as paper"
+    }
+  ],
+  "counts": {
+    "train": {
+      "paper": 150,
+      "plastic": 150,
+      "organic": 150
+    },
+    "validation": {
+      "paper": 6,
+      "plastic": 6,
+      "organic": 6
+    },
+    "test": {
+      "paper": 6,
+      "plastic": 6,
+      "organic": 6
+    }
+  },
+  "kind_counts": {
+    "train": {
+      "original": 177,
+      "existing_augmentation": 45,
+      "generated_augmentation": 228
+    },
+    "validation": {
+      "original": 18,
+      "existing_augmentation": 0,
+      "generated_augmentation": 0
+    },
+    "test": {
+      "original": 18,
+      "existing_augmentation": 0,
+      "generated_augmentation": 0
+    }
+  },
+  "total_output_images": 486,
+  "visual_distribution_all_files": {
+    "train": {
+      "paper": {
+        "paper_cardboard_or_box": 66,
+        "paper_crumpled_or_sheet": 84
+      },
+      "plastic": {
+        "plastic_bottle": 100,
+        "plastic_film_or_bag": 50
+      },
+      "organic": {
+        "chili": 16,
+        "cucumber": 75,
+        "lime": 51,
+        "small_fruit": 8
+      }
+    },
+    "validation": {
+      "paper": {
+        "paper_cardboard_or_box": 3,
+        "paper_crumpled_or_sheet": 3
+      },
+      "plastic": {
+        "plastic_bottle": 4,
+        "plastic_film_or_bag": 2
+      },
+      "organic": {
+        "chili": 0,
+        "cucumber": 3,
+        "lime": 3,
+        "small_fruit": 0
+      }
+    },
+    "test": {
+      "paper": {
+        "paper_cardboard_or_box": 3,
+        "paper_crumpled_or_sheet": 3
+      },
+      "plastic": {
+        "plastic_bottle": 4,
+        "plastic_film_or_bag": 2
+      },
+      "organic": {
+        "chili": 0,
+        "cucumber": 3,
+        "lime": 3,
+        "small_fruit": 0
+      }
+    }
+  },
+  "visual_distribution_originals": {
+    "train": {
+      "paper": {
+        "paper_cardboard_or_box": 56,
+        "paper_crumpled_or_sheet": 67
+      },
+      "plastic": {
+        "plastic_bottle": 29,
+        "plastic_film_or_bag": 5
+      },
+      "organic": {
+        "chili": 2,
+        "cucumber": 10,
+        "lime": 7,
+        "small_fruit": 1
+      }
+    },
+    "validation": {
+      "paper": {
+        "paper_cardboard_or_box": 3,
+        "paper_crumpled_or_sheet": 3
+      },
+      "plastic": {
+        "plastic_bottle": 4,
+        "plastic_film_or_bag": 2
+      },
+      "organic": {
+        "chili": 0,
+        "cucumber": 3,
+        "lime": 3,
+        "small_fruit": 0
+      }
+    },
+    "test": {
+      "paper": {
+        "paper_cardboard_or_box": 3,
+        "paper_crumpled_or_sheet": 3
+      },
+      "plastic": {
+        "plastic_bottle": 4,
+        "plastic_film_or_bag": 2
+      },
+      "organic": {
+        "chili": 0,
+        "cucumber": 3,
+        "lime": 3,
+        "small_fruit": 0
+      }
+    }
+  },
+  "split_strategy": "manual visual subtype stratification; class-balanced holdouts; source-lineage isolation",
+  "augmentation_policy": {
+    "train_only": true,
+    "materialized": true,
+    "generated_from_originals_only": true,
+    "recipes": [
+      "v9_color_noise",
+      "rotate_zoom",
+      "low_light_blur",
+      "bright_warm",
+      "cool_cast",
+      "sensor_noise",
+      "soft_focus_scale"
+    ],
+    "operations": [
+      "V9-style gamma/exposure/contrast/channel cast",
+      "rotation",
+      "scale/resize on canvas",
+      "translation jitter",
+      "Gaussian sensor noise",
+      "Gaussian blur"
+    ],
+    "output_dimensions": [
+      320,
+      240
+    ]
+  },
+  "checks": {
+    "decoded_images": 486,
+    "exact_duplicate_outputs": 0,
+    "source_group_leakage": 0,
+    "augmentations_in_validation_or_test": 0,
+    "class_balance_errors": 0,
+    "common_visual_group_coverage_errors": 0
+  },
+  "coverage_limitations": [
+    "organic/chili has only 2 originals and organic/small_fruit has only 1; they remain train-only because independent three-way coverage is impossible without collecting more originals",
+    "validation and test are small (6 originals per class); use a later independent capture session for a deployment-grade estimate"
+  ],
+  "manifest_sha256": "e518500f921c689e4b50c65223ddc950c02818c3a4421cbd1dbcd73d4ece2b24"
+}

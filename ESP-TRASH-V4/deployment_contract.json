@@ -1,0 +1,126 @@
+{
+  "source_model": "F:\\ANHTHU\\1-HCMUS\\1 - STUDY\\0-now\\AIOT\\PROJECT\\CODE\\AIOT-SMART-TRASH-BIN\\AI\\V10\\artifacts\\model_int8.tflite",
+  "model_version": "tinycnn-v10-wide-128x96-esp-contract",
+  "bytes": 102880,
+  "sha256": "2f348748c79c62ceb37049020940c37e7981d1c71acc2dcf2cd055b6a668a44b",
+  "labels": [
+    "paper",
+    "plastic",
+    "organic"
+  ],
+  "input": {
+    "name": "serving_default_image:0",
+    "shape": [
+      1,
+      96,
+      128,
+      3
+    ],
+    "dtype": "int8",
+    "quantization": {
+      "scale": 0.003921568859368563,
+      "zero_point": -128
+    }
+  },
+  "output": {
+    "name": "StatefulPartitionedCall_1:0",
+    "shape": [
+      1,
+      3
+    ],
+    "dtype": "int8",
+    "quantization": {
+      "scale": 0.00390625,
+      "zero_point": -128
+    }
+  },
+  "operators": [
+    "CONV_2D",
+    "FULLY_CONNECTED",
+    "MEAN",
+    "SOFTMAX"
+  ],
+  "self_test": {
+    "multiplier": 191,
+    "offset": 7,
+    "raw_output": [
+      -128,
+      -128,
+      127
+    ],
+    "expected_class_index": 2,
+    "minimum_raw_margin": 255
+  },
+  "preprocessing": {
+    "operation_order": [
+      "decode RGB",
+      "nearest-neighbor floor resize of the complete frame to 128x96 (width x height), without cropping",
+      "RGB565 low-bit truncation",
+      "bounded gray-world white balance",
+      "bounded mean-luminance normalization",
+      "rescale float32 to [0,1]"
+    ],
+    "applies_to": [
+      "ESP edge inference"
+    ],
+    "recognition_confidence_threshold": 0.6,
+    "threshold_scope": "application postprocessing after inference; not part of the TFLite model",
+    "rgb565_steps": [
+      8,
+      4,
+      8
+    ],
+    "white_balance": {
+      "method": "gray-world channel means",
+      "gain_q10_limits": [
+        768,
+        1365
+      ]
+    },
+    "luminance": {
+      "formula": "(77*R + 150*G + 29*B + 128)//256",
+      "mean_dead_band": [
+        96,
+        160
+      ],
+      "gain_q8_limits": [
+        192,
+        341
+      ]
+    }
+  },
+  "test_metrics": {
+    "accuracy": 0.9230769230769231,
+    "macro_recall": 0.923076923076923,
+    "macro_precision": 0.9246031746031745,
+    "macro_f1": 0.9229629629629629,
+    "minimum_class_recall": 0.8461538461538461,
+    "recall_per_class": [
+      0.9230769230769231,
+      1.0,
+      0.8461538461538461
+    ],
+    "precision_per_class": [
+      0.8571428571428571,
+      1.0,
+      0.9166666666666666
+    ],
+    "confusion_matrix": [
+      [
+        12,
+        0,
+        1
+      ],
+      [
+        0,
+        13,
+        0
+      ],
+      [
+        2,
+        0,
+        11
+      ]
+    ]
+  }
+}

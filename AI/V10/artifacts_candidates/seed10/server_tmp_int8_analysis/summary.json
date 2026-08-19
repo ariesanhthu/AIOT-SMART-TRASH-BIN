@@ -1,0 +1,132 @@
+{
+  "created_utc": "2026-08-14T04:49:28.063120+00:00",
+  "images": 259,
+  "labels": [
+    "paper",
+    "plastic",
+    "organic"
+  ],
+  "counts": {
+    "paper": 136,
+    "plastic": 91,
+    "organic": 32
+  },
+  "preprocessing": "exact V10/ESP-TRASH-V3 4:3 crop + 128x96 integer contract",
+  "float": {
+    "accuracy": 0.9884169884169884,
+    "macro_recall": 0.9914350355526826,
+    "macro_precision": 0.9902844873859366,
+    "macro_f1": 0.9908454822253141,
+    "minimum_class_recall": 0.9852941176470589,
+    "recall_per_class": [
+      0.9852941176470589,
+      0.989010989010989,
+      1.0
+    ],
+    "precision_per_class": [
+      0.9925925925925926,
+      0.9782608695652174,
+      1.0
+    ],
+    "confusion_matrix": [
+      [
+        134,
+        2,
+        0
+      ],
+      [
+        1,
+        90,
+        0
+      ],
+      [
+        0,
+        0,
+        32
+      ]
+    ]
+  },
+  "int8": {
+    "accuracy": 0.9884169884169884,
+    "macro_recall": 0.9914350355526826,
+    "macro_precision": 0.9902844873859366,
+    "macro_f1": 0.9908454822253141,
+    "minimum_class_recall": 0.9852941176470589,
+    "recall_per_class": [
+      0.9852941176470589,
+      0.989010989010989,
+      1.0
+    ],
+    "precision_per_class": [
+      0.9925925925925926,
+      0.9782608695652174,
+      1.0
+    ],
+    "confusion_matrix": [
+      [
+        134,
+        2,
+        0
+      ],
+      [
+        1,
+        90,
+        0
+      ],
+      [
+        0,
+        0,
+        32
+      ]
+    ]
+  },
+  "int8_minus_float_accuracy": 0.0,
+  "top1_disagreements": 0,
+  "mean_probability_absolute_error": 0.0022041837219148874,
+  "maximum_probability_absolute_error": 0.0893542617559433,
+  "training_exposure": {
+    "heldout_validation": 18,
+    "heldout_test": 18,
+    "exact_train_file": 222,
+    "unseen": 1
+  },
+  "unseen_int8": {
+    "accuracy": 0.0,
+    "macro_recall": 0.0,
+    "macro_precision": 0.0,
+    "macro_f1": 0.0,
+    "minimum_class_recall": 0.0,
+    "recall_per_class": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "precision_per_class": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "confusion_matrix": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0
+      ]
+    ]
+  },
+  "confidence_at_least_0_8": {
+    "images": 256,
+    "accuracy": 0.9921875
+  },
+  "interpretation_limit": "dataset_augmented_v9 was built from these server captures; metrics on exposed files/lineages measure memorization plus pipeline consistency, not independent generalization."
+}

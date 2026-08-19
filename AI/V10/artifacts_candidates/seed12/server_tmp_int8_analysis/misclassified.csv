@@ -1,0 +1,5 @@
+path,sha256,truth,float_prediction,int8_prediction,float_correct,int8_correct,int8_confidence,training_exposure,int8_paper,int8_plastic,int8_organic
+paper/83d1d81b-af4e-4edd-873c-899e3ff3a910.jpg,9fe1f5214ca8af80b71ccfc4717a4f9b7554d0fb924d95fdb034cd011feab5fb,paper,plastic,plastic,False,False,0.66796875,heldout_validation,0.16015625,0.66796875,0.171875
+paper/ae41156a-aa81-46b1-97d7-fb8f22cfdad6.jpg,25d10179c0879b97415e1508b033bc8ab8da1ed515a7b5761d5aadc84614c568,paper,plastic,plastic,False,False,0.99609375,unseen,0.0,0.99609375,0.0
+paper/d6c607ff-e54d-4b58-9170-290051e6d6cf.jpg,d9a7ee56dc377212ca95550ae3cb40244a96328e51af13a39c26606d75d6e01d,paper,organic,organic,False,False,0.75,heldout_test,0.23828125,0.01171875,0.75
+plastic/be1a672c-873b-4117-b7af-daa4599b8390.jpg,12518badcdb61e3cbe99e5522d43096715607a1a519b5ef82ac301a1e468a25d,plastic,paper,paper,False,False,0.69921875,heldout_validation,0.69921875,0.28125,0.015625

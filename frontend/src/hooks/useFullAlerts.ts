@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { fetchFullAlerts, resolveFullAlert } from '../services/eventService';
 import { fullAlertEventToRow } from '../mappers/alertMapper';
 import type { AlertRow, Bin } from '../types/api';
@@ -6,20 +6,22 @@ import type { AlertRow, Bin } from '../types/api';
 export function useFullAlerts(bins: Bin[]) {
   const [alerts, setAlerts] = useState<AlertRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const binsRef = useRef(bins);
+  const deviceIds = bins.map((bin) => bin.id).join(',');
 
   useEffect(() => {
-    if (bins.length === 0) {
-      setAlerts([]);
-      setLoading(false);
-      return;
-    }
+    binsRef.current = bins;
+  }, [bins]);
+
+  useEffect(() => {
+    if (!deviceIds) return;
 
     let cancelled = false;
 
     const load = (showLoading: boolean) => {
       if (showLoading) setLoading(true);
       Promise.all(
-        bins.map((bin) =>
+        binsRef.current.map((bin) =>
           fetchFullAlerts(bin.id).then((events) =>
             events
               .map((event) => fullAlertEventToRow(event, bin))
@@ -35,13 +37,14 @@ export function useFullAlerts(bins: Bin[]) {
         });
     };
 
-    load(true);
+    const initialLoad = window.setTimeout(() => load(true), 0);
     const timer = window.setInterval(() => load(false), 5000);
     return () => {
       cancelled = true;
+      window.clearTimeout(initialLoad);
       window.clearInterval(timer);
     };
-  }, [bins.map((b) => b.id).join(',')]);
+  }, [deviceIds]);
 
   const resolveAlert = async (id: string) => {
     const alert = alerts.find((item) => item.id === id);
@@ -56,5 +59,10 @@ export function useFullAlerts(bins: Bin[]) {
     setAlerts((prev) => prev.map((item) => (item.status === 'pending' ? { ...item, status: 'resolved' } : item)));
   };
 
-  return { alerts, loading, resolveAlert, markAllResolved };
+  return {
+    alerts: bins.length > 0 ? alerts : [],
+    loading: bins.length > 0 ? loading : false,
+    resolveAlert,
+    markAllResolved,
+  };
 }

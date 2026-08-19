@@ -1,4 +1,0 @@
-tensorflow>=2.16,<2.21
-numpy>=1.26,<3
-Pillow>=10
-

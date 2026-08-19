@@ -156,6 +156,7 @@ int measureBin(int trigPin, int echoPin, bool *isFull,
                const __FlashStringHelper* name, byte thresholdPercent);
 void measureAllBins();
 void updateBinStatusLeds();
+void applyThresholdsToCachedFillLevels();
 bool parseConfigLine(const char *line);
 void applyEspConfig(const char *line);
 void sendFillDataToESP();
@@ -843,6 +844,28 @@ void updateBinStatusLeds() {
   }
 }
 
+// Ap dung config backend tren dung ba muc day vua gui len server. Khong do lai
+// sensor o day de LED va backend cung danh gia mot bo du lieu duy nhat.
+void applyThresholdsToCachedFillLevels() {
+  binFullNhua = fillNhua >= thresholdNhua;
+  binFullGiay = fillGiay >= thresholdGiay;
+  binFullHuuCo = fillHuuCo >= thresholdHuuCo;
+  updateBinStatusLeds();
+
+  Serial.print(F("[CONFIG] Ap lai LED voi fill NHUA/GIAY/HUUCO="));
+  Serial.print(fillNhua);
+  Serial.print('/');
+  Serial.print(fillGiay);
+  Serial.print('/');
+  Serial.print(fillHuuCo);
+  Serial.print(F("% -> "));
+  Serial.print(binFullNhua ? F("FULL") : F("AVAILABLE"));
+  Serial.print('/');
+  Serial.print(binFullGiay ? F("FULL") : F("AVAILABLE"));
+  Serial.print('/');
+  Serial.println(binFullHuuCo ? F("FULL") : F("AVAILABLE"));
+}
+
 // ==== GỬI CHUỖI F DUNG TÍCH SANG ESP32-CAM ====
 void sendFillDataToESP() {
   snprintf(pendingFillMessage, sizeof(pendingFillMessage), "F %d %d %d",
@@ -890,7 +913,7 @@ void applyEspConfig(const char *line) {
   Serial.print(thresholdHuuCo);
   Serial.print(F("% maintenance="));
   Serial.println(maintenanceMode ? F("ON") : F("OFF"));
-  measureAllBins();
+  applyThresholdsToCachedFillLevels();
 }
 
 void sendReadyProbe() {

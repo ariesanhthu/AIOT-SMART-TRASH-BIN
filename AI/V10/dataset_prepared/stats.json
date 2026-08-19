@@ -1,0 +1,91 @@
+{
+  "schema_version": 3,
+  "created_utc": "2026-08-14T04:37:56.703044+00:00",
+  "purpose": "V10 combined dataset plus saved labeled-ESP edge-case augmentation",
+  "counts": {
+    "train": {
+      "paper": 251,
+      "plastic": 251,
+      "organic": 238
+    },
+    "validation": {
+      "paper": 13,
+      "plastic": 13,
+      "organic": 13
+    },
+    "test": {
+      "paper": 13,
+      "plastic": 13,
+      "organic": 13
+    }
+  },
+  "total": 818,
+  "origin_counts": {
+    "augmented_v9": 486,
+    "prepared_v9": 267,
+    "v10_labeled_esp_data": 65
+  },
+  "kind_counts": {
+    "generated_augmentation": 228,
+    "original": 303,
+    "existing_augmentation": 131,
+    "v9_augmentation": 91,
+    "esp_data_augmentation": 60,
+    "esp_data_original": 5
+  },
+  "augmentation_counts": {
+    "resize_lowres": 5,
+    "rotate_left": 5,
+    "rotate_right": 5,
+    "jpeg_quality_20": 5,
+    "gaussian_blur": 5,
+    "sensor_noise": 5,
+    "color_warm": 5,
+    "color_cool": 5,
+    "color_desaturated": 5,
+    "light_bright": 5,
+    "light_dark": 5,
+    "edge_dark_blur_noise": 5
+  },
+  "source_images_found": 6,
+  "source_images_used": 5,
+  "source_images_skipped": [
+    {
+      "source": "data/paper/d6c607ff-e54d-4b58-9170-290051e6d6cf.jpg",
+      "label": "paper",
+      "sha256": "d9a7ee56dc377212ca95550ae3cb40244a96328e51af13a39c26606d75d6e01d",
+      "reason": "source already belongs to held-out split",
+      "held_out_splits": [
+        "test"
+      ],
+      "matched_paths": [
+        "test/paper/augv9_paper_test_original_006.jpg"
+      ]
+    }
+  ],
+  "new_files_added": 65,
+  "new_originals_added": 5,
+  "new_augmentations_added": 60,
+  "saved_output_size": [
+    320,
+    240
+  ],
+  "variant_names": [
+    "resize_lowres",
+    "rotate_left",
+    "rotate_right",
+    "jpeg_quality_20",
+    "gaussian_blur",
+    "sensor_noise",
+    "color_warm",
+    "color_cool",
+    "color_desaturated",
+    "light_bright",
+    "light_dark",
+    "edge_dark_blur_noise"
+  ],
+  "exact_duplicates": 0,
+  "source_group_leakage": 0,
+  "validation_test_unchanged": true,
+  "manifest_sha256": "60cd8f1ea299e95c9d7ec9a7ef7b5c12ee062fcabea4fbfd119d65af10952a2c"
+}
